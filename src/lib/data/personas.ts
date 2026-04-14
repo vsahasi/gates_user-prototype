@@ -263,7 +263,7 @@ export const PERSONAS: Persona[] = [
       goals: ['nursing degree', 'RN licensure'],
       specialCircumstances: ['rural', 'first_generation'],
       constraints: ['limited internet', 'limited counselor access', 'financial constraints'],
-      financialInfo: { pellEligible: false, incomeRange: 'middle' },
+      financialInfo: { pellEligible: false, incomeRange: 'middle', hasParentalSupport: true },
     },
   },
   {
