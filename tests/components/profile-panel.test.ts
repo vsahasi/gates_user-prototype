@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mergeProfile } from '@/components/chat/ChatInterface'
 import { getOrCreateSession, setStudentProfile, getSession } from '@/lib/orchestration/session'
+import { isDirty } from '@/components/panels/ProfilePanel'
 
 describe('mergeProfile', () => {
   it('returns defaults when initial is empty', () => {
@@ -54,5 +55,38 @@ describe('setStudentProfile', () => {
 
   it('is a no-op for unknown session', () => {
     expect(() => setStudentProfile('nonexistent', { grade: 9 })).not.toThrow()
+  })
+})
+
+describe('isDirty', () => {
+  const base = { grade: 10, state: 'CA', gpa: 3.5, interests: ['business'], goals: ['transfer'] }
+
+  it('returns false when draft matches profile', () => {
+    expect(isDirty({ ...base }, { ...base })).toBe(false)
+  })
+
+  it('returns true when grade differs', () => {
+    expect(isDirty({ ...base, grade: 11 }, base)).toBe(true)
+  })
+
+  it('returns true when state differs', () => {
+    expect(isDirty({ ...base, state: 'TX' }, base)).toBe(true)
+  })
+
+  it('returns true when gpa differs', () => {
+    expect(isDirty({ ...base, gpa: 4.0 }, base)).toBe(true)
+  })
+
+  it('returns true when interests differ', () => {
+    expect(isDirty({ ...base, interests: ['nursing'] }, base)).toBe(true)
+  })
+
+  it('returns true when goals differ', () => {
+    expect(isDirty({ ...base, goals: [] }, base)).toBe(true)
+  })
+
+  it('returns false for null fields when both null', () => {
+    expect(isDirty({ grade: null, state: null, gpa: null, interests: [], goals: [] },
+                   { grade: null, state: null, gpa: null, interests: [], goals: [] })).toBe(false)
   })
 })
