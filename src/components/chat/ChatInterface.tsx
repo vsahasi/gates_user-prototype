@@ -186,7 +186,7 @@ export function ChatInterface({ sessionId, personaId, personaName, initialProfil
   return (
     <div className="flex flex-row h-[calc(100vh-57px)]">
       {/* Profile sidebar */}
-      <div className="w-[280px] shrink-0 border-r overflow-hidden">
+      <div className="w-[280px] shrink-0 border-r flex flex-col">
         <ProfilePanel profile={profile} onUpdate={setProfile} />
       </div>
 
@@ -203,7 +203,7 @@ export function ChatInterface({ sessionId, personaId, personaName, initialProfil
           {isLoading && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
           <div ref={bottomRef} />
         </div>
-        <div className="px-4 pb-4">
+        <div className="px-4 pt-2 pb-4">
           <ChatInput onSend={sendMessage} disabled={isLoading} />
         </div>
       </div>
