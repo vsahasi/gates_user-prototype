@@ -37,17 +37,7 @@ export interface CDSEntry {
   dataYear: number
 }
 
-export interface PineconeMetadata {
-  unitId: string
-  name: string
-  state: string
-  type: string
-  city: string
-  dataSource: 'ipeds' | 'cds'
-  dataYear: number
-  cipCodes?: string[]
-  [key: string]: string | number | boolean | string[] | undefined
-}
+export type PineconeMetadata = Record<string, string | number | boolean | string[]>
 
 function formatCurrency(n: number): string {
   return `$${n.toLocaleString('en-US')}`
@@ -133,7 +123,7 @@ export function formatCdsChunk(e: CDSEntry): string {
 }
 
 export function buildIpedsMetadata(r: IpedsRecord): PineconeMetadata {
-  return {
+  const meta: PineconeMetadata = {
     unitId: r.unitId,
     name: r.name,
     state: r.state,
@@ -141,7 +131,6 @@ export function buildIpedsMetadata(r: IpedsRecord): PineconeMetadata {
     city: r.city,
     dataSource: 'ipeds',
     dataYear: r.dataYear,
-    cipCodes: r.cipCodes,
     inStateTuition: r.inStateTuition,
     outOfStateTuition: r.outOfStateTuition,
     gradRate: r.gradRate,
@@ -149,6 +138,8 @@ export function buildIpedsMetadata(r: IpedsRecord): PineconeMetadata {
     satRangeLow: r.satRangeLow ?? -1,
     satRangeHigh: r.satRangeHigh ?? -1,
   }
+  if (r.cipCodes.length > 0) meta['cipCodes'] = r.cipCodes
+  return meta
 }
 
 export function buildCdsMetadata(e: CDSEntry): PineconeMetadata {
