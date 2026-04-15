@@ -121,7 +121,7 @@ export function ChatInterface({ sessionId, personaId, personaName, initialProfil
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId, personaId }),
+        body: JSON.stringify({ message: text, sessionId, personaId, profile }),
       })
 
       if (!res.ok) {

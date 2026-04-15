@@ -71,6 +71,20 @@ export function updateStudentProfile(
   session.lastActiveAt = Date.now()
 }
 
+export function setStudentProfile(
+  sessionId: string,
+  profile: Partial<StudentProfile>
+): void {
+  const session = sessions.get(sessionId)
+  if (!session) return
+  session.studentProfile = {
+    ...DEFAULT_PROFILE,
+    ...profile,
+    financialInfo: { ...DEFAULT_PROFILE.financialInfo, ...(profile.financialInfo ?? {}) },
+  }
+  session.lastActiveAt = Date.now()
+}
+
 export function getSession(sessionId: string): SessionState | undefined {
   return sessions.get(sessionId)
 }

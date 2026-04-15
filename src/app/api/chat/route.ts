@@ -1,7 +1,7 @@
 // src/app/api/chat/route.ts
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { getOrCreateSession, updateSession, updateStudentProfile } from '@/lib/orchestration/session'
+import { getOrCreateSession, updateSession, updateStudentProfile, setStudentProfile } from '@/lib/orchestration/session'
 import { checkInputGuardrails, checkOutputGuardrails, formatDataVintageDisclosure } from '@/lib/orchestration/guardrails'
 import { classifyIntent } from '@/lib/orchestration/intent'
 import { buildUserMessage, SYSTEM_PROMPT } from '@/lib/orchestration/prompt-builder'
@@ -9,16 +9,17 @@ import { ragService } from '@/lib/services/rag'
 import { createScorecardService } from '@/lib/services/scorecard'
 import { createONETService } from '@/lib/services/onet'
 import { getPersonaById } from '@/lib/data/personas'
-import type { Message } from '@/lib/types'
+import type { Message, StudentProfile } from '@/lib/types'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { message, sessionId, personaId } = body as {
+  const { message, sessionId, personaId, profile } = body as {
     message: string
     sessionId: string
     personaId?: string
+    profile?: Partial<StudentProfile>
   }
 
   // Input guardrails
@@ -30,8 +31,10 @@ export async function POST(request: NextRequest) {
   // Session setup
   const session = getOrCreateSession(sessionId, personaId)
 
-  // Seed profile from persona if first message
-  if (personaId && session.conversationHistory.length === 0) {
+  // Apply client-provided profile (authoritative) or seed from persona on first message
+  if (profile) {
+    setStudentProfile(sessionId, profile)
+  } else if (personaId && session.conversationHistory.length === 0) {
     const persona = getPersonaById(personaId)
     if (persona?.initialProfile) {
       updateStudentProfile(sessionId, persona.initialProfile as Parameters<typeof updateStudentProfile>[1])
