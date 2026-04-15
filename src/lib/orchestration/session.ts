@@ -1,17 +1,6 @@
 // src/lib/orchestration/session.ts
 import type { SessionState, StudentProfile } from '@/lib/types'
-
-const DEFAULT_PROFILE: StudentProfile = {
-  grade: null,
-  state: null,
-  interests: [],
-  gpa: null,
-  financialInfo: { incomeRange: null, pellEligible: null, hasParentalSupport: null },
-  constraints: [],
-  specialCircumstances: [],
-  goals: [],
-  programInterests: [],
-}
+import { DEFAULT_PROFILE } from '@/lib/defaults'
 
 // Module-level store — persists across requests in a single Node.js process
 const sessions = new Map<string, SessionState>()

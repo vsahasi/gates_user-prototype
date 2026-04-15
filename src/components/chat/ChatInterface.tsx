@@ -16,6 +16,7 @@ import type {
 } from '@/lib/types'
 import { SCHOOLS } from '@/lib/data/schools'
 import { ProfilePanel } from '@/components/panels/ProfilePanel'
+import { DEFAULT_PROFILE } from '@/lib/defaults'
 
 interface ChatInterfaceProps {
   sessionId: string
@@ -61,18 +62,6 @@ function renderStructuredComponent(component: StructuredComponent | undefined) {
     return <TimelineChecklist data={component.data as TimelineChecklistData} />
   }
   return null
-}
-
-const DEFAULT_PROFILE: StudentProfile = {
-  grade: null,
-  state: null,
-  interests: [],
-  gpa: null,
-  financialInfo: { incomeRange: null, pellEligible: null, hasParentalSupport: null },
-  constraints: [],
-  specialCircumstances: [],
-  goals: [],
-  programInterests: [],
 }
 
 export function mergeProfile(initial: Partial<StudentProfile>): StudentProfile {
