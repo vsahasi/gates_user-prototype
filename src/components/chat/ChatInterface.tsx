@@ -184,20 +184,28 @@ export function ChatInterface({ sessionId, personaId, personaName, initialProfil
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-57px)]">
-      <div className="flex-1 overflow-y-auto px-4 py-6 max-w-3xl mx-auto w-full">
-        {messages.map((msg, i) => (
-          <MessageBubble
-            key={i}
-            message={msg}
-            structuredComponent={renderStructuredComponent(msg.structuredComponent)}
-          />
-        ))}
-        {isLoading && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
-        <div ref={bottomRef} />
+    <div className="flex flex-row h-[calc(100vh-57px)]">
+      {/* Profile sidebar */}
+      <div className="w-[280px] shrink-0 border-r overflow-hidden">
+        <ProfilePanel profile={profile} onUpdate={setProfile} />
       </div>
-      <div className="max-w-3xl mx-auto w-full">
-        <ChatInput onSend={sendMessage} disabled={isLoading} />
+
+      {/* Chat column */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          {messages.map((msg, i) => (
+            <MessageBubble
+              key={i}
+              message={msg}
+              structuredComponent={renderStructuredComponent(msg.structuredComponent)}
+            />
+          ))}
+          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
+          <div ref={bottomRef} />
+        </div>
+        <div className="px-4 pb-4">
+          <ChatInput onSend={sendMessage} disabled={isLoading} />
+        </div>
       </div>
     </div>
   )
