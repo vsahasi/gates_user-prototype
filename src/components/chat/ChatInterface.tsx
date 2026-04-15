@@ -12,13 +12,16 @@ import type {
   ComparisonTableData,
   PathwayCardsData,
   TimelineChecklistData,
+  StudentProfile,
 } from '@/lib/types'
 import { SCHOOLS } from '@/lib/data/schools'
+import { ProfilePanel } from '@/components/panels/ProfilePanel'
 
 interface ChatInterfaceProps {
   sessionId: string
   personaId?: string
   personaName?: string
+  initialProfile?: Partial<StudentProfile>
 }
 
 interface DisplayMessage extends Message {
@@ -60,9 +63,30 @@ function renderStructuredComponent(component: StructuredComponent | undefined) {
   return null
 }
 
-export function ChatInterface({ sessionId, personaId, personaName }: ChatInterfaceProps) {
+const DEFAULT_PROFILE: StudentProfile = {
+  grade: null,
+  state: null,
+  interests: [],
+  gpa: null,
+  financialInfo: { incomeRange: null, pellEligible: null, hasParentalSupport: null },
+  constraints: [],
+  specialCircumstances: [],
+  goals: [],
+  programInterests: [],
+}
+
+export function mergeProfile(initial: Partial<StudentProfile>): StudentProfile {
+  return {
+    ...DEFAULT_PROFILE,
+    ...initial,
+    financialInfo: { ...DEFAULT_PROFILE.financialInfo, ...(initial.financialInfo ?? {}) },
+  }
+}
+
+export function ChatInterface({ sessionId, personaId, personaName, initialProfile = {} }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [profile, setProfile] = useState<StudentProfile>(() => mergeProfile(initialProfile))
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

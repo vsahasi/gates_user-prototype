@@ -20,6 +20,7 @@ export default async function ChatPage({ params, searchParams }: ChatPageProps) 
         sessionId={sessionId}
         personaId={personaId}
         personaName={persona?.name}
+        initialProfile={persona?.initialProfile ?? {}}
       />
     </div>
   )
