@@ -15,6 +15,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
+  // profile is client-supplied and trusted; add schema validation before production
   const { message, sessionId, personaId, profile } = body as {
     message: string
     sessionId: string
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
   const classification = await classifyIntent(message, session)
 
   // Update profile with extracted params
-  if (classification.extractedParams.state) {
+  if (!profile && classification.extractedParams.state) {
     updateStudentProfile(sessionId, { state: classification.extractedParams.state })
   }
 
