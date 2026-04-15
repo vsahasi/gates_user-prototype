@@ -21,6 +21,7 @@ const GRADE_OPTIONS = [
 
 type DraftShape = Pick<StudentProfile, 'grade' | 'state' | 'gpa' | 'interests' | 'goals'>
 
+// Only checks form-visible fields. Update this function when new fields are added to the form.
 export function isDirty(draft: DraftShape, profile: DraftShape): boolean {
   return (
     draft.grade !== profile.grade ||
@@ -68,8 +69,9 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* Grade */}
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Grade</label>
+          <label htmlFor="profile-grade" className="text-xs text-muted-foreground">Grade</label>
           <select
+            id="profile-grade"
             className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
             value={draft.grade ?? ''}
             onChange={(e) =>
@@ -85,8 +87,9 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* State */}
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">State</label>
+          <label htmlFor="profile-state" className="text-xs text-muted-foreground">State</label>
           <select
+            id="profile-state"
             className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
             value={draft.state ?? ''}
             onChange={(e) =>
@@ -102,8 +105,9 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* GPA */}
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">GPA</label>
+          <label htmlFor="profile-gpa" className="text-xs text-muted-foreground">GPA</label>
           <input
+            id="profile-gpa"
             type="number"
             min={0}
             max={4.0}
@@ -111,7 +115,7 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
             className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
             value={draft.gpa ?? ''}
             onChange={(e) =>
-              setDraft((d) => ({ ...d, gpa: e.target.value ? Number(e.target.value) : null }))
+              setDraft((d) => ({ ...d, gpa: e.target.value ? Math.min(4.0, Math.max(0, Number(e.target.value))) : null }))
             }
             placeholder="e.g. 3.5"
           />
@@ -119,9 +123,10 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* Interests */}
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Interests</label>
+          <label htmlFor="profile-interests" className="text-xs text-muted-foreground">Interests</label>
           <div className="flex gap-1">
             <input
+              id="profile-interests"
               className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm"
               placeholder="Add interest…"
               value={interestInput}
@@ -162,9 +167,10 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* Goals */}
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Goals</label>
+          <label htmlFor="profile-goals" className="text-xs text-muted-foreground">Goals</label>
           <div className="flex gap-1">
             <input
+              id="profile-goals"
               className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm"
               placeholder="Add goal…"
               value={goalInput}
