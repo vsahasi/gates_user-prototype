@@ -42,4 +42,4 @@ yarn-error.log*
 next-env.d.ts
 
 # IPEDS raw CSV downloads — large files, do not commit
-data/
+/data/
