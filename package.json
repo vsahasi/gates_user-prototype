@@ -6,15 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ingest:ipeds": "tsx scripts/ingest-ipeds.ts",
+    "ingest:cds": "tsx scripts/ingest-cds.ts",
+    "download:ipeds": "tsx scripts/download-ipeds.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
     "@base-ui/react": "^1.4.0",
+    "@pinecone-database/pinecone": "^7.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.8.0",
     "next": "16.2.3",
+    "openai": "^6.34.0",
+    "papaparse": "^5.5.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "^4.2.0",
@@ -23,12 +31,17 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "adm-zip": "^0.5.17",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }
