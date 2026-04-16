@@ -17,15 +17,24 @@ import { formatIpedsChunk, buildIpedsMetadata, type IpedsRecord } from '../src/l
 import type { SchoolType } from '../src/lib/types'
 
 // ── Field name configuration ─────────────────────────────────────────────────
+// IPEDS 2023 splits the data we need across four files (see download-ipeds.ts):
+//   HD     = Directory (INSTNM, CITY, STABBR, CONTROL, ICLEVEL) — primary source
+//   IC_AY  = Tuition (TUITION2, TUITION3), joined on UNITID
+//   ADM    = Admissions (ADMCON7, SAT percentiles), joined on UNITID
+//   GR200  = Completion rates (C150_4, C150_L4), joined on UNITID
 // If NCES changes column names between years, update these constants.
-// To inspect your CSV headers: head -1 data/ipeds/ic2023.csv | tr "," "\n"
-const IC_FIELDS = {
+// To inspect headers: head -1 data/ipeds/hd2023.csv | tr "," "\n"
+const HD_FIELDS = {
   unitId: 'UNITID',
   name: 'INSTNM',
   city: 'CITY',
   state: 'STABBR',
   control: 'CONTROL',    // 1=public, 2=private nonprofit, 3=private for-profit
-  level: 'ICLEVEL',     // 1=4-year, 2=2-year, 3=<2-year
+  level: 'ICLEVEL',      // 1=4-year, 2=2-year, 3=<2-year
+}
+
+const IC_AY_FIELDS = {
+  unitId: 'UNITID',
   tuitionInState: 'TUITION2',
   tuitionOutState: 'TUITION3',
 }
@@ -39,10 +48,10 @@ const ADM_FIELDS = {
   satMtHigh: 'SATMT75',
 }
 
-const GR_FIELDS = {
+const GR200_FIELDS = {
   unitId: 'UNITID',
-  gradRate4yr: 'C150_4',   // 4-year schools: 150% time completion rate
-  gradRate2yr: 'C150_L4',  // 2-year schools: 150% time completion rate
+  gradRate4yr: 'BAGR150', // Bachelor's cohort: 150% time grad rate (%)
+  gradRate2yr: 'L4GR150', // Less-than-4-year cohort: 150% time grad rate (%)
 }
 
 // ── Tribal college UNITID allowlist (AIHEC member institutions) ──────────────
@@ -80,7 +89,13 @@ const PINECONE_BATCH = 100
 
 function parseCsv(filePath: string): Record<string, string>[] {
   const content = fs.readFileSync(filePath, 'utf8')
-  const result = Papa.parse<Record<string, string>>(content, { header: true, skipEmptyLines: true })
+  // IPEDS CSVs ship with a UTF-8 BOM on the first header (e.g. "\ufeffUNITID"),
+  // which makes row['UNITID'] return undefined. Strip it via transformHeader.
+  const result = Papa.parse<Record<string, string>>(content, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.replace(/^\ufeff/, ''),
+  })
   if (result.errors.length > 0) {
     console.warn(`  Parse warnings in ${path.basename(filePath)}:`, result.errors.slice(0, 3))
   }
@@ -101,38 +116,54 @@ async function main() {
   const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! })
   const index = pinecone.index(process.env.PINECONE_INDEX ?? 'pathwayai-schools').namespace('schools')
 
-  // ── Load CSVs ──────────────────────────────────────────────────────────────
+  // ── Locate CSVs ────────────────────────────────────────────────────────────
   console.log('Loading IPEDS CSV files...')
-  const icFile = fs.readdirSync(DATA_DIR).find((f) => f.toLowerCase().startsWith('ic' + YEAR) && f.toLowerCase().endsWith('.csv') && !f.toLowerCase().includes('_rv'))
-  const admFile = fs.readdirSync(DATA_DIR).find((f) => f.toLowerCase().startsWith('adm' + YEAR) && f.toLowerCase().endsWith('.csv') && !f.toLowerCase().includes('_rv'))
-  const grFile = fs.readdirSync(DATA_DIR).find((f) => f.toLowerCase().startsWith('gr' + YEAR) && f.toLowerCase().endsWith('.csv') && !f.toLowerCase().includes('_rv'))
+  const files = fs.readdirSync(DATA_DIR)
+  const findCsv = (prefix: string) =>
+    files.find((f) => {
+      const lower = f.toLowerCase()
+      return lower.startsWith(prefix.toLowerCase()) && lower.endsWith('.csv') && !lower.includes('_rv')
+    })
 
-  if (!icFile || !admFile || !grFile) {
-    console.error('Missing CSV files. Run: pnpm download:ipeds')
-    console.error('Found files:', fs.readdirSync(DATA_DIR).join(', '))
+  const hdFile = findCsv(`hd${YEAR}`)
+  const icAyFile = findCsv(`ic${YEAR}_ay`)
+  const admFile = findCsv(`adm${YEAR}`)
+  const gr200File = findCsv(`gr200_${YEAR.slice(2)}`)
+
+  if (!hdFile || !icAyFile || !admFile || !gr200File) {
+    console.error('Missing CSV files. Run: npm run download:ipeds')
+    console.error(`  HD: ${hdFile ?? 'MISSING'}`)
+    console.error(`  IC_AY: ${icAyFile ?? 'MISSING'}`)
+    console.error(`  ADM: ${admFile ?? 'MISSING'}`)
+    console.error(`  GR200: ${gr200File ?? 'MISSING'}`)
+    console.error('Found files:', files.join(', '))
     process.exit(1)
   }
 
-  console.log(`  IC: ${icFile} | ADM: ${admFile} | GR: ${grFile}`)
+  console.log(`  HD: ${hdFile} | IC_AY: ${icAyFile} | ADM: ${admFile} | GR200: ${gr200File}`)
 
-  const icRows = parseCsv(path.join(DATA_DIR, icFile))
+  const hdRows = parseCsv(path.join(DATA_DIR, hdFile))
+  const icAyRows = parseCsv(path.join(DATA_DIR, icAyFile))
   const admRows = parseCsv(path.join(DATA_DIR, admFile))
-  const grRows = parseCsv(path.join(DATA_DIR, grFile))
+  const gr200Rows = parseCsv(path.join(DATA_DIR, gr200File))
 
-  console.log(`  IC: ${icRows.length} rows | ADM: ${admRows.length} rows | GR: ${grRows.length} rows`)
+  console.log(
+    `  HD: ${hdRows.length} rows | IC_AY: ${icAyRows.length} rows | ADM: ${admRows.length} rows | GR200: ${gr200Rows.length} rows`
+  )
 
-  // ── Build lookup maps ──────────────────────────────────────────────────────
+  // ── Build lookup maps (IC_AY + ADM + GR200 keyed by UNITID) ────────────────
+  const icAyByUnitId = new Map(icAyRows.map((r) => [r[IC_AY_FIELDS.unitId], r]))
   const admByUnitId = new Map(admRows.map((r) => [r[ADM_FIELDS.unitId], r]))
-  const grByUnitId = new Map(grRows.map((r) => [r[GR_FIELDS.unitId], r]))
+  const grByUnitId = new Map(gr200Rows.map((r) => [r[GR200_FIELDS.unitId], r]))
 
   // ── Filter and join ────────────────────────────────────────────────────────
   console.log('\nFiltering institutions...')
   const records: IpedsRecord[] = []
 
-  for (const ic of icRows) {
-    const unitId = ic[IC_FIELDS.unitId]
-    const control = ic[IC_FIELDS.control]
-    const level = ic[IC_FIELDS.level]
+  for (const hd of hdRows) {
+    const unitId = hd[HD_FIELDS.unitId]
+    const control = hd[HD_FIELDS.control]
+    const level = hd[HD_FIELDS.level]
     const isPublic = control === '1'
     const is4Year = level === '1'
     const is2Year = level === '2'
@@ -140,6 +171,7 @@ async function main() {
 
     if (!isTribal && !(isPublic && (is4Year || is2Year))) continue
 
+    const icAy = icAyByUnitId.get(unitId)
     const adm = admByUnitId.get(unitId)
     const gr = grByUnitId.get(unitId)
 
@@ -151,8 +183,8 @@ async function main() {
     const satLow = satVrLow !== null && satMtLow !== null ? satVrLow + satMtLow : null
     const satHigh = satVrHigh !== null && satMtHigh !== null ? satVrHigh + satMtHigh : null
 
-    const gradRate4 = gr ? toNumOrNull(gr[GR_FIELDS.gradRate4yr]) : null
-    const gradRate2 = gr ? toNumOrNull(gr[GR_FIELDS.gradRate2yr]) : null
+    const gradRate4 = gr ? toNumOrNull(gr[GR200_FIELDS.gradRate4yr]) : null
+    const gradRate2 = gr ? toNumOrNull(gr[GR200_FIELDS.gradRate2yr]) : null
     const gradRateRaw = gradRate4 ?? gradRate2 ?? 0
     const gradRate = gradRateRaw / 100
 
@@ -161,12 +193,12 @@ async function main() {
 
     records.push({
       unitId,
-      name: ic[IC_FIELDS.name],
-      city: ic[IC_FIELDS.city],
-      state: ic[IC_FIELDS.state],
+      name: hd[HD_FIELDS.name],
+      city: hd[HD_FIELDS.city],
+      state: hd[HD_FIELDS.state],
       type,
-      inStateTuition: toNum(ic[IC_FIELDS.tuitionInState]),
-      outOfStateTuition: toNum(ic[IC_FIELDS.tuitionOutState]),
+      inStateTuition: toNum(icAy?.[IC_AY_FIELDS.tuitionInState]),
+      outOfStateTuition: toNum(icAy?.[IC_AY_FIELDS.tuitionOutState]),
       gradRate,
       requiresTestScore: adm ? adm[ADM_FIELDS.testReq] === '1' : false,
       satRangeLow: satLow && satLow > 0 ? satLow : null,

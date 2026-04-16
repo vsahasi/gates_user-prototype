@@ -48,15 +48,46 @@ export async function classifyIntent(
   const text = response.content[0].type === 'text' ? response.content[0].text : '{}'
 
   try {
-    return JSON.parse(text) as IntentClassification
-  } catch {
-    // Fallback if JSON parsing fails
+    return JSON.parse(extractJson(text)) as IntentClassification
+  } catch (err) {
+    // Log rather than silently defaulting — misclassifying everything as
+    // general_question disables RAG/Scorecard/O*NET gates entirely.
+    console.warn('[intent] JSON parse failed, defaulting to general_question. Raw Haiku output:', text.slice(0, 500), err)
     return {
       intent: 'general_question',
       extractedParams: {},
       rewrittenQuery: message,
     }
   }
+}
+
+// Haiku occasionally wraps JSON in ```json ... ``` fences or prepends a
+// one-line preface despite being told to output JSON only. Extract the first
+// brace-balanced object from the response.
+function extractJson(raw: string): string {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const candidate = fenced ? fenced[1] : raw
+  const start = candidate.indexOf('{')
+  if (start === -1) return candidate.trim()
+  let depth = 0
+  let inString = false
+  let esc = false
+  for (let i = start; i < candidate.length; i++) {
+    const c = candidate[i]
+    if (inString) {
+      if (esc) { esc = false; continue }
+      if (c === '\\') { esc = true; continue }
+      if (c === '"') inString = false
+      continue
+    }
+    if (c === '"') { inString = true; continue }
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return candidate.slice(start, i + 1)
+    }
+  }
+  return candidate.slice(start).trim()
 }
 
 function buildContextSummary(session: SessionState): string {
