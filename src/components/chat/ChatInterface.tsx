@@ -17,6 +17,10 @@ import type {
 import { SCHOOLS } from '@/lib/data/schools'
 import { ProfilePanel } from '@/components/panels/ProfilePanel'
 import { DEFAULT_PROFILE } from '@/lib/defaults'
+import {
+  parseStructuredComponentMessage,
+  stripStructuredComponentForStream,
+} from '@/lib/chat/structured-component'
 
 interface ChatInterfaceProps {
   sessionId: string
@@ -28,22 +32,6 @@ interface ChatInterfaceProps {
 interface DisplayMessage extends Message {
   structuredComponent?: StructuredComponent
   isStreaming?: boolean
-}
-
-function parseStructuredComponent(text: string): { cleanText: string; component: StructuredComponent | null } {
-  const match = text.match(/<!-- COMPONENT:(\w+) -->\n([\s\S]*?)\n<!-- \/COMPONENT -->/)
-  if (!match) return { cleanText: text, component: null }
-
-  const type = match[1] as StructuredComponent['type']
-  try {
-    const data = JSON.parse(match[2])
-    return {
-      cleanText: text.replace(match[0], '').trim(),
-      component: { type, data },
-    }
-  } catch {
-    return { cleanText: text, component: null }
-  }
 }
 
 function renderStructuredComponent(component: StructuredComponent | undefined) {
@@ -135,18 +123,19 @@ export function ChatInterface({ sessionId, personaId, personaName, initialProfil
         const { done, value } = await reader.read()
         if (done) break
         accumulated += decoder.decode(value, { stream: true })
+        const cleanStreamingText = stripStructuredComponentForStream(accumulated)
         setMessages((prev) => {
           const updated = [...prev]
           updated[updated.length - 1] = {
             ...updated[updated.length - 1],
-            content: accumulated,
+            content: cleanStreamingText,
             isStreaming: true,
           }
           return updated
         })
       }
 
-      const { cleanText, component } = parseStructuredComponent(accumulated)
+      const { cleanText, component } = parseStructuredComponentMessage(accumulated)
       setMessages((prev) => {
         const updated = [...prev]
         updated[updated.length - 1] = {
@@ -173,7 +162,7 @@ export function ChatInterface({ sessionId, personaId, personaName, initialProfil
   }
 
   return (
-    <div className="flex flex-row h-[calc(100vh-57px)]">
+    <div className="flex h-[calc(100vh-57px)] flex-row bg-[radial-gradient(ellipse_at_top,_hsl(var(--primary)/0.08),_transparent_45%)]">
       {/* Profile sidebar */}
       <div className="w-[280px] shrink-0 border-r flex flex-col">
         <ProfilePanel profile={profile} onUpdate={setProfile} />
@@ -181,18 +170,20 @@ export function ChatInterface({ sessionId, personaId, personaName, initialProfil
 
       {/* Chat column */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          {messages.map((msg, i) => (
-            <MessageBubble
-              key={i}
-              message={msg}
-              structuredComponent={renderStructuredComponent(msg.structuredComponent)}
-            />
-          ))}
-          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
-          <div ref={bottomRef} />
+        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+          <div className="mx-auto w-full max-w-3xl space-y-1">
+            {messages.map((msg, i) => (
+              <MessageBubble
+                key={i}
+                message={msg}
+                structuredComponent={renderStructuredComponent(msg.structuredComponent)}
+              />
+            ))}
+            {isLoading && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
+            <div ref={bottomRef} />
+          </div>
         </div>
-        <div className="px-4 pt-2 pb-4">
+        <div className="px-4 pb-5 sm:px-6">
           <ChatInput onSend={sendMessage} disabled={isLoading} />
         </div>
       </div>

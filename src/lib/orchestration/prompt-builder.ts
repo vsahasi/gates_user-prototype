@@ -37,6 +37,13 @@ When your response naturally calls for a comparison table, pathway cards, or a t
 {"title": "...", "items": [{"week": "Week 1", "task": "...", "detail": "...", "deadline": "YYYY-MM-DD or null", "resource": "URL or null"}]}
 <!-- /COMPONENT -->
 
+MARKDOWN FOR CHAT UI:
+Use ## and ### for section headings, numbered lists (1. 2. …) and bullets (- item). Put bare URLs as https://… — the app will turn them into links. Prefer headings over bold-only lines for structure.
+
+STRUCTURED COMPONENT RULES:
+- If you emit a structured block, the JSON must be complete and valid JSON, and you must end with the exact line <!-- /COMPONENT --> (same as the examples above).
+- Never output partial/truncated JSON. If you cannot fit a complete component, omit the component block entirely.
+
 Only include a component when it genuinely improves comprehension. One component per response maximum.`
 
 export interface PromptContext {
@@ -67,28 +74,45 @@ export function buildUserMessage(context: PromptContext): string {
     parts.push(`[STUDENT PROFILE]\n${profileLines.join('\n')}`)
   }
 
-  // Retrieved school data
+  // Retrieved school data. IMPORTANT: render null numeric fields as "unknown"
+  // rather than "0" / "$0" / "0%", which the LLM treats as factual.
   if (context.ragResults.length > 0) {
     const schoolData = context.ragResults.map((r) => {
       const s = r.school
-      return `${s.name} (${s.state}, ${s.type}): In-state tuition $${s.inStateTuition.toLocaleString()}, Grad rate ${Math.round(s.gradRate * 100)}%, Median earnings $${s.medianEarnings10yr.toLocaleString()}/yr. Notes: ${s.specialNotes.join('; ')} [Data: ${s.dataYear}]`
+      const bits = [`${s.name} (${s.state}, ${s.type})`]
+      if (s.inStateTuition != null) bits.push(`In-state tuition $${s.inStateTuition.toLocaleString()}`)
+      if (s.gradRate != null) bits.push(`Grad rate ${Math.round(s.gradRate * 100)}%`)
+      if (s.medianEarnings10yr != null) bits.push(`Median earnings $${s.medianEarnings10yr.toLocaleString()}/yr`)
+      let line = bits.join(', ') + '.'
+      if (s.specialNotes.length) line += ` Notes: ${s.specialNotes.join('; ')}.`
+      if (s.dataYear != null) line += ` [Data: ${s.dataYear}]`
+      return line
     }).join('\n')
     parts.push(`[SCHOOL DATA FROM KNOWLEDGE BASE]\n${schoolData}`)
   }
 
-  // College Scorecard data
+  // College Scorecard data. Same null-skipping contract as RAG block above.
   if (context.scorecardData.length > 0) {
-    const scorecardText = context.scorecardData.map((s) =>
-      `${s.name} (${s.state}): In-state $${s.inStateTuition.toLocaleString()}, Admission rate ${s.admissionRate !== null ? Math.round(s.admissionRate * 100) + '%' : 'open'}, Grad rate ${Math.round(s.gradRate * 100)}%, Median earnings $${s.medianEarnings10yr.toLocaleString()}`
-    ).join('\n')
+    const scorecardText = context.scorecardData.map((s) => {
+      const bits = [`${s.name} (${s.state})`]
+      if (s.inStateTuition != null) bits.push(`In-state $${s.inStateTuition.toLocaleString()}`)
+      bits.push(`Admission rate ${s.admissionRate != null ? Math.round(s.admissionRate * 100) + '%' : 'open/unknown'}`)
+      if (s.gradRate != null) bits.push(`Grad rate ${Math.round(s.gradRate * 100)}%`)
+      if (s.medianEarnings10yr != null) bits.push(`Median earnings $${s.medianEarnings10yr.toLocaleString()}`)
+      return bits.join(', ') + '.'
+    }).join('\n')
     parts.push(`[COLLEGE SCORECARD DATA — Live]\n${scorecardText}`)
   }
 
   // O*NET data
   if (context.onetData.length > 0) {
-    const onetText = context.onetData.map((o) =>
-      `${o.title} (SOC: ${o.code}): Job Zone ${o.jobZone}/5 preparation needed. ${o.brightOutlook ? 'Bright Outlook — growing field.' : ''} ${o.wages ? `Median wage: $${o.wages.median.toLocaleString()}/yr.` : ''}`
-    ).join('\n')
+    const onetText = context.onetData.map((o) => {
+      const bits = [`${o.title} (SOC: ${o.code})`]
+      if (o.jobZone != null) bits.push(`Job Zone ${o.jobZone}/5 preparation needed`)
+      if (o.brightOutlook) bits.push('Bright Outlook — growing field')
+      if (o.wages) bits.push(`Median wage: $${o.wages.median.toLocaleString()}/yr`)
+      return bits.join('. ') + '.'
+    }).join('\n')
     parts.push(`[CAREER DATA FROM O*NET]\n${onetText}`)
   }
 

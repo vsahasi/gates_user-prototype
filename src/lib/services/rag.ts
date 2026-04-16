@@ -1,6 +1,7 @@
 import { SCHOOLS, searchSchools } from '@/lib/data/schools'
 import type { School, RAGQueryParams, RAGResult, SchoolType } from '@/lib/types'
 import { embedText } from '@/lib/services/embeddings'
+import { numOrNull } from '@/lib/utils'
 
 export interface IRAGService {
   query(params: RAGQueryParams): Promise<RAGResult[]>
@@ -29,7 +30,11 @@ export class InMemoryRAGService implements IRAGService {
     }
 
     if (params.maxTuition) {
-      candidates = candidates.filter((s) => s.inStateTuition <= params.maxTuition!)
+      // Exclude schools missing tuition data when a budget filter is active —
+      // better to show "no match" than to include schools we can't price.
+      candidates = candidates.filter((s) =>
+        s.inStateTuition != null && s.inStateTuition <= params.maxTuition!
+      )
     }
 
     if (params.query) {
@@ -108,8 +113,8 @@ export class PineconeRAGService implements IRAGService {
 }
 
 function metadataToSchool(meta: Record<string, unknown>): School {
-  const satLow = Number(meta['satRangeLow'] ?? -1)
-  const satHigh = Number(meta['satRangeHigh'] ?? -1)
+  const satLow = numOrNull(meta['satRangeLow'])
+  const satHigh = numOrNull(meta['satRangeHigh'])
   return {
     unitId: String(meta['unitId'] ?? ''),
     opeid: String(meta['opeid'] ?? ''),
@@ -117,23 +122,23 @@ function metadataToSchool(meta: Record<string, unknown>): School {
     state: String(meta['state'] ?? ''),
     type: String(meta['type'] ?? 'community_college') as SchoolType,
     city: String(meta['city'] ?? ''),
-    inStateTuition: Number(meta['inStateTuition'] ?? 0),
-    outOfStateTuition: Number(meta['outOfStateTuition'] ?? 0),
-    netPriceMedian: Number(meta['netPriceMedian'] ?? 0),
-    gradRate: Number(meta['gradRate'] ?? 0),
-    admissionRate: meta['admissionRate'] != null && Number(meta['admissionRate']) >= 0
-      ? Number(meta['admissionRate']) : null,
-    satRange: satLow > 0 && satHigh > 0 ? [satLow, satHigh] : null,
+    inStateTuition: numOrNull(meta['inStateTuition']),
+    outOfStateTuition: numOrNull(meta['outOfStateTuition']),
+    netPriceMedian: numOrNull(meta['netPriceMedian']),
+    gradRate: numOrNull(meta['gradRate']),
+    admissionRate: numOrNull(meta['admissionRate']),
+    satRange: satLow != null && satHigh != null && satLow > 0 && satHigh > 0
+      ? [satLow, satHigh] : null,
     programs: Array.isArray(meta['cipCodes']) ? (meta['cipCodes'] as string[]) : [],
-    medianEarnings10yr: Number(meta['medianEarnings10yr'] ?? 0),
-    medianLoanDebt: Number(meta['medianLoanDebt'] ?? 0),
+    medianEarnings10yr: numOrNull(meta['medianEarnings10yr']),
+    medianLoanDebt: numOrNull(meta['medianLoanDebt']),
     applicationDeadline: String(meta['regularDecisionDeadline'] ?? meta['applicationDeadline'] ?? ''),
     earlyDecisionDeadline: meta['earlyDecisionDeadline'] ? String(meta['earlyDecisionDeadline']) : null,
     requiresTestScore: Boolean(meta['requiresTestScore']),
-    avgAidPackage: Number(meta['avgAidPackage'] ?? 0),
-    pctReceivingAid: Number(meta['pctReceivingAid'] ?? 0),
+    avgAidPackage: numOrNull(meta['avgAidPackage']),
+    pctReceivingAid: numOrNull(meta['pctReceivingAid']),
     specialNotes: Array.isArray(meta['specialNotes']) ? (meta['specialNotes'] as string[]) : [],
-    dataYear: Number(meta['dataYear'] ?? 2023),
+    dataYear: numOrNull(meta['dataYear']),
   }
 }
 

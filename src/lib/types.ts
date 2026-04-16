@@ -22,22 +22,24 @@ export interface School {
   state: string
   type: SchoolType
   city: string
-  inStateTuition: number
-  outOfStateTuition: number
-  netPriceMedian: number
-  gradRate: number
+  // Numeric fields are nullable where the upstream source (Scorecard/IPEDS)
+  // may omit them. Prompt + UI layers MUST render nulls as "unknown", never $0.
+  inStateTuition: number | null
+  outOfStateTuition: number | null
+  netPriceMedian: number | null
+  gradRate: number | null
   admissionRate: number | null
   satRange: [number, number] | null
   programs: string[] // CIP codes
-  medianEarnings10yr: number
-  medianLoanDebt: number
+  medianEarnings10yr: number | null
+  medianLoanDebt: number | null
   applicationDeadline: string
   earlyDecisionDeadline: string | null
   requiresTestScore: boolean
-  avgAidPackage: number
-  pctReceivingAid: number
+  avgAidPackage: number | null
+  pctReceivingAid: number | null
   specialNotes: string[]
-  dataYear: number
+  dataYear: number | null
 }
 
 export interface Persona {

@@ -1,4 +1,5 @@
 // src/lib/services/scorecard.ts
+import { numOrNull } from '@/lib/utils'
 
 export interface ScorecardProgram {
   institutionName: string
@@ -14,13 +15,15 @@ export interface ScorecardInstitution {
   unitId: string
   name: string
   state: string
-  inStateTuition: number
-  outOfStateTuition: number
+  // All numeric fields are nullable — Scorecard commonly returns null for
+  // tuition, grad rate, earnings when data is suppressed or unreported.
+  inStateTuition: number | null
+  outOfStateTuition: number | null
   admissionRate: number | null
-  gradRate: number
-  medianEarnings10yr: number
-  medianDebt: number
-  netPrice: number
+  gradRate: number | null
+  medianEarnings10yr: number | null
+  medianDebt: number | null
+  netPrice: number | null
 }
 
 export interface ScorecardQueryParams {
@@ -61,7 +64,22 @@ export class CollegeScorecardService implements ICollegeScorecardService {
     })
 
     if (params.state) queryParams.set('school.state', params.state)
-    if (params.cipCode) queryParams.set('latest.programs.cip_4_digit.code', params.cipCode)
+    if (params.cipCode) {
+      // Scorecard only exposes exact-match filters at cip_4_digit and
+      // cip_6_digit granularity — there is NO cip_2_digit field. Intent
+      // classifier emits 2-digit prefixes (e.g. "51" = Health Professions),
+      // so we translate them into a 4-digit __range query: "51" → 5100..5199.
+      const cip = params.cipCode.replace(/\./g, '')
+      if (cip.length <= 2) {
+        const lo = cip.padEnd(4, '0') // "51" → "5100"
+        const hi = cip.padEnd(4, '9') // "51" → "5199"
+        queryParams.set('latest.programs.cip_4_digit.code__range', `${lo}..${hi}`)
+      } else if (cip.length <= 4) {
+        queryParams.set('latest.programs.cip_4_digit.code', cip)
+      } else {
+        queryParams.set('latest.programs.cip_6_digit.code', cip)
+      }
+    }
 
     const res = await fetch(`${this.baseUrl}/schools?${queryParams}`, {
       next: { revalidate: 3600 },
@@ -101,15 +119,13 @@ export class CollegeScorecardService implements ICollegeScorecardService {
       unitId: String(raw['id']),
       name: String(raw['school.name'] ?? ''),
       state: String(raw['school.state'] ?? ''),
-      inStateTuition: Number(raw['latest.cost.tuition.in_state'] ?? 0),
-      outOfStateTuition: Number(raw['latest.cost.tuition.out_of_state'] ?? 0),
-      admissionRate: raw['latest.admissions.admission_rate.overall'] != null
-        ? Number(raw['latest.admissions.admission_rate.overall'])
-        : null,
-      gradRate: Number(raw['latest.completion.rate_suppressed.overall'] ?? 0),
-      medianEarnings10yr: Number(raw['latest.earnings.10_yrs_after_entry.median'] ?? 0),
-      medianDebt: Number(raw['latest.aid.median_debt.completers.overall'] ?? 0),
-      netPrice: Number(raw['latest.cost.avg_net_price.public'] ?? 0),
+      inStateTuition: numOrNull(raw['latest.cost.tuition.in_state']),
+      outOfStateTuition: numOrNull(raw['latest.cost.tuition.out_of_state']),
+      admissionRate: numOrNull(raw['latest.admissions.admission_rate.overall']),
+      gradRate: numOrNull(raw['latest.completion.rate_suppressed.overall']),
+      medianEarnings10yr: numOrNull(raw['latest.earnings.10_yrs_after_entry.median']),
+      medianDebt: numOrNull(raw['latest.aid.median_debt.completers.overall']),
+      netPrice: numOrNull(raw['latest.cost.avg_net_price.public']),
     }
   }
 }

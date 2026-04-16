@@ -17,10 +17,13 @@ function formatValue(school: School, field: keyof School): string {
     field === 'medianLoanDebt' ||
     field === 'avgAidPackage'
   ) {
-    return `$${Number(val).toLocaleString()}`
+    return val == null ? '—' : `$${Number(val).toLocaleString()}`
   }
-  if (field === 'gradRate' || field === 'admissionRate' || field === 'pctReceivingAid') {
-    return val === null ? 'Open Admission' : `${Math.round(Number(val) * 100)}%`
+  if (field === 'gradRate' || field === 'pctReceivingAid') {
+    return val == null ? '—' : `${Math.round(Number(val) * 100)}%`
+  }
+  if (field === 'admissionRate') {
+    return val == null ? 'Open/Unknown' : `${Math.round(Number(val) * 100)}%`
   }
   if (val === null || val === undefined) return '—'
   if (Array.isArray(val)) return val.join(', ')

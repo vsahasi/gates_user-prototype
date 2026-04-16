@@ -9,7 +9,23 @@ import { ragService } from '@/lib/services/rag'
 import { createScorecardService } from '@/lib/services/scorecard'
 import { createONETService } from '@/lib/services/onet'
 import { getPersonaById } from '@/lib/data/personas'
-import type { Message, StudentProfile } from '@/lib/types'
+import type { IntentCategory, Message, StudentProfile } from '@/lib/types'
+
+// Which intents trigger each data source. ReadonlySet gives O(1) membership
+// checks and prevents accidental typos vs. stringly-typed array literals.
+const SCHOOL_DATA_INTENTS: ReadonlySet<IntentCategory> = new Set([
+  'program_comparison',
+  'pathway_recommendation',
+  'application_prep',
+])
+const SCORECARD_INTENTS: ReadonlySet<IntentCategory> = new Set([
+  'program_comparison',
+  'pathway_recommendation',
+])
+const CAREER_INTENTS: ReadonlySet<IntentCategory> = new Set([
+  'career_exploration',
+  'pathway_recommendation',
+])
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -53,7 +69,7 @@ export async function POST(request: NextRequest) {
   // Parallel data retrieval
   const [ragResults, scorecardData, onetData] = await Promise.allSettled([
     // RAG — always query for school context when relevant
-    ['program_comparison', 'pathway_recommendation', 'application_prep'].includes(classification.intent)
+    SCHOOL_DATA_INTENTS.has(classification.intent)
       ? ragService.query({
           state: classification.extractedParams.state ?? session.studentProfile.state ?? undefined,
           cipCodes: classification.extractedParams.cipCodes,
@@ -61,8 +77,7 @@ export async function POST(request: NextRequest) {
       : Promise.resolve([]),
 
     // Scorecard — for comparison/recommendation
-    ['program_comparison', 'pathway_recommendation'].includes(classification.intent) &&
-    process.env.COLLEGE_SCORECARD_API_KEY
+    SCORECARD_INTENTS.has(classification.intent) && process.env.COLLEGE_SCORECARD_API_KEY
       ? createScorecardService().searchInstitutions({
           state: classification.extractedParams.state ?? session.studentProfile.state ?? undefined,
           cipCode: classification.extractedParams.cipCodes?.[0],
@@ -71,10 +86,10 @@ export async function POST(request: NextRequest) {
       : Promise.resolve([]),
 
     // O*NET — for career exploration
-    ['career_exploration', 'pathway_recommendation'].includes(classification.intent) &&
-    process.env.ONET_USERNAME
-      ? createONETService().searchOccupations(
-          session.studentProfile.interests.join(' ') || message
+    CAREER_INTENTS.has(classification.intent) && process.env.ONET_API_KEY
+      ? createONETService().searchOccupationsEnriched(
+          session.studentProfile.interests.join(' ') || message,
+          3
         )
       : Promise.resolve([]),
   ])
@@ -82,6 +97,19 @@ export async function POST(request: NextRequest) {
   const rag = ragResults.status === 'fulfilled' ? ragResults.value : []
   const scorecard = scorecardData.status === 'fulfilled' ? scorecardData.value : []
   const onet = onetData.status === 'fulfilled' ? onetData.value : []
+
+  // Raw reasons can contain CRLF (from Error stacks) and sensitive details —
+  // keep them in server logs only, and expose just an ok/error status to the client.
+  const ragReason = ragResults.status === 'rejected' ? String(ragResults.reason) : ''
+  const scorecardReason = scorecardData.status === 'rejected' ? String(scorecardData.reason) : ''
+  const onetReason = onetData.status === 'rejected' ? String(onetData.reason) : ''
+
+  console.log(
+    `[chat] intent=${classification.intent} rag=${rag.length} scorecard=${scorecard.length} onet=${onet.length}` +
+      (ragReason ? ` rag_err=${ragReason}` : '') +
+      (scorecardReason ? ` scorecard_err=${scorecardReason}` : '') +
+      (onetReason ? ` onet_err=${onetReason}` : '')
+  )
 
   // Build prompt
   const userMessage = buildUserMessage({
@@ -101,7 +129,7 @@ export async function POST(request: NextRequest) {
       try {
         const claudeStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1500,
+          max_tokens: 2500,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userMessage }],
         })
@@ -154,6 +182,12 @@ export async function POST(request: NextRequest) {
       'Content-Type': 'text/plain; charset=utf-8',
       'Transfer-Encoding': 'chunked',
       'X-Intent': classification.intent,
+      'X-RAG-Count': String(rag.length),
+      'X-Scorecard-Count': String(scorecard.length),
+      'X-ONET-Count': String(onet.length),
+      'X-RAG-Status': ragResults.status === 'fulfilled' ? 'ok' : 'error',
+      'X-Scorecard-Status': scorecardData.status === 'fulfilled' ? 'ok' : 'error',
+      'X-ONET-Status': onetData.status === 'fulfilled' ? 'ok' : 'error',
     },
   })
 }
