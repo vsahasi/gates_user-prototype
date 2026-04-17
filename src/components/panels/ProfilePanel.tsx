@@ -61,18 +61,16 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <h3 className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
-          Your Profile
-        </h3>
-
+    <div className="flex flex-col">
+      <div className="p-4 space-y-3.5">
         {/* Grade */}
         <div className="space-y-1">
-          <label htmlFor="profile-grade" className="text-xs text-muted-foreground">Grade</label>
+          <label htmlFor="profile-grade" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Grade
+          </label>
           <select
             id="profile-grade"
-            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+            className="w-full rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
             value={draft.grade ?? ''}
             onChange={(e) =>
               setDraft((d) => ({ ...d, grade: e.target.value ? Number(e.target.value) : null }))
@@ -87,10 +85,12 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* State */}
         <div className="space-y-1">
-          <label htmlFor="profile-state" className="text-xs text-muted-foreground">State</label>
+          <label htmlFor="profile-state" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            State
+          </label>
           <select
             id="profile-state"
-            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+            className="w-full rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
             value={draft.state ?? ''}
             onChange={(e) =>
               setDraft((d) => ({ ...d, state: e.target.value || null }))
@@ -105,14 +105,16 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* GPA */}
         <div className="space-y-1">
-          <label htmlFor="profile-gpa" className="text-xs text-muted-foreground">GPA</label>
+          <label htmlFor="profile-gpa" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            GPA
+          </label>
           <input
             id="profile-gpa"
             type="number"
             min={0}
             max={4.0}
             step={0.1}
-            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+            className="w-full rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
             value={draft.gpa ?? ''}
             onChange={(e) =>
               setDraft((d) => ({ ...d, gpa: e.target.value ? Math.min(4.0, Math.max(0, Number(e.target.value))) : null }))
@@ -123,11 +125,13 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
 
         {/* Interests */}
         <div className="space-y-1">
-          <label htmlFor="profile-interests" className="text-xs text-muted-foreground">Interests</label>
-          <div className="flex gap-1">
+          <label htmlFor="profile-interests" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Interests
+          </label>
+          <div className="flex gap-1.5">
             <input
               id="profile-interests"
-              className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm"
+              className="flex-1 rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
               placeholder="Add interest…"
               value={interestInput}
               onChange={(e) => setInterestInput(e.target.value)}
@@ -140,38 +144,42 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
             />
             <button
               type="button"
-              className="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted"
+              className="rounded-lg border border-border/60 bg-[#fafaf8] px-2.5 py-2 text-sm text-muted-foreground hover:bg-[#1a6b5a]/5 hover:text-[#1a6b5a] hover:border-[#1a6b5a]/20 transition-colors"
               onClick={() => addTag('interests', interestInput)}
             >
               +
             </button>
           </div>
-          <div className="flex flex-wrap gap-1 pt-1">
-            {draft.interests.map((interest) => (
-              <span
-                key={interest}
-                className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs"
-              >
-                {interest}
-                <button
-                  type="button"
-                  onClick={() => removeTag('interests', interest)}
-                  className="text-muted-foreground hover:text-foreground leading-none"
+          {draft.interests.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1.5">
+              {draft.interests.map((interest) => (
+                <span
+                  key={interest}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#1a6b5a]/8 text-[#1a6b5a] px-2.5 py-0.5 text-[11px] font-medium"
                 >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
+                  {interest}
+                  <button
+                    type="button"
+                    onClick={() => removeTag('interests', interest)}
+                    className="text-[#1a6b5a]/50 hover:text-[#1a6b5a] leading-none ml-0.5"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Goals */}
         <div className="space-y-1">
-          <label htmlFor="profile-goals" className="text-xs text-muted-foreground">Goals</label>
-          <div className="flex gap-1">
+          <label htmlFor="profile-goals" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Goals
+          </label>
+          <div className="flex gap-1.5">
             <input
               id="profile-goals"
-              className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm"
+              className="flex-1 rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
               placeholder="Add goal…"
               value={goalInput}
               onChange={(e) => setGoalInput(e.target.value)}
@@ -184,37 +192,43 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
             />
             <button
               type="button"
-              className="rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted"
+              className="rounded-lg border border-border/60 bg-[#fafaf8] px-2.5 py-2 text-sm text-muted-foreground hover:bg-[#1a6b5a]/5 hover:text-[#1a6b5a] hover:border-[#1a6b5a]/20 transition-colors"
               onClick={() => addTag('goals', goalInput)}
             >
               +
             </button>
           </div>
-          <div className="flex flex-wrap gap-1 pt-1">
-            {draft.goals.map((goal) => (
-              <span
-                key={goal}
-                className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs"
-              >
-                {goal}
-                <button
-                  type="button"
-                  onClick={() => removeTag('goals', goal)}
-                  className="text-muted-foreground hover:text-foreground leading-none"
+          {draft.goals.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1.5">
+              {draft.goals.map((goal) => (
+                <span
+                  key={goal}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#e07856]/10 text-[#c06040] px-2.5 py-0.5 text-[11px] font-medium"
                 >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
+                  {goal}
+                  <button
+                    type="button"
+                    onClick={() => removeTag('goals', goal)}
+                    className="text-[#c06040]/50 hover:text-[#c06040] leading-none ml-0.5"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Update button */}
-      <div className="p-4 border-t shrink-0">
+      <div className="px-4 pb-4">
         <button
           type="button"
-          className="w-full rounded-md bg-primary text-primary-foreground px-3 py-2 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+            isDirty(draft, profile)
+              ? 'bg-[#1a6b5a] text-white shadow-sm hover:bg-[#155a4b] active:scale-[0.98]'
+              : 'bg-muted text-muted-foreground/50 cursor-not-allowed'
+          }`}
           disabled={!isDirty(draft, profile)}
           onClick={() => onUpdate(draft)}
         >

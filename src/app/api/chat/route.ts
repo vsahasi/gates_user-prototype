@@ -1,6 +1,7 @@
 // src/app/api/chat/route.ts
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
 import { getOrCreateSession, updateSession, updateStudentProfile, setStudentProfile } from '@/lib/orchestration/session'
 import { checkInputGuardrails, checkOutputGuardrails, formatDataVintageDisclosure } from '@/lib/orchestration/guardrails'
 import { classifyIntent } from '@/lib/orchestration/intent'
@@ -10,6 +11,31 @@ import { createScorecardService } from '@/lib/services/scorecard'
 import { createONETService } from '@/lib/services/onet'
 import { getPersonaById } from '@/lib/data/personas'
 import type { IntentCategory, Message, StudentProfile } from '@/lib/types'
+
+// Mirrors StudentProfile in src/lib/types.ts. All fields optional because the
+// client sends a partial profile (only the fields it has collected so far).
+const StudentProfileSchema = z.object({
+  grade: z.number().int().min(1).max(16).nullable(),
+  state: z.string().length(2).nullable(),
+  interests: z.array(z.string().max(200)).max(50),
+  gpa: z.number().min(0).max(5).nullable(),
+  financialInfo: z.object({
+    incomeRange: z.string().max(100).nullable(),
+    pellEligible: z.boolean().nullable(),
+    hasParentalSupport: z.boolean().nullable(),
+  }),
+  constraints: z.array(z.string().max(200)).max(50),
+  specialCircumstances: z.array(z.string().max(200)).max(50),
+  goals: z.array(z.string().max(200)).max(50),
+  programInterests: z.array(z.string().max(200)).max(50),
+}).partial()
+
+const RequestBodySchema = z.object({
+  message: z.string().min(1).max(4000),
+  sessionId: z.string().min(1).max(200),
+  personaId: z.string().max(100).optional(),
+  profile: StudentProfileSchema.optional(),
+})
 
 // Which intents trigger each data source. ReadonlySet gives O(1) membership
 // checks and prevents accidental typos vs. stringly-typed array literals.

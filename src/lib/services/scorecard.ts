@@ -85,7 +85,7 @@ export class CollegeScorecardService implements ICollegeScorecardService {
       next: { revalidate: 3600 },
     })
 
-    if (!res.ok) throw new Error(`Scorecard API error: ${res.status}`)
+    if (!res.ok) throw await scorecardError(res, params)
 
     const json = await res.json()
     return (json.results ?? []).map(this.mapToInstitution)
@@ -108,7 +108,7 @@ export class CollegeScorecardService implements ICollegeScorecardService {
     })
 
     if (res.status === 404) return null
-    if (!res.ok) throw new Error(`Scorecard API error: ${res.status}`)
+    if (!res.ok) throw await scorecardError(res, { unitId })
 
     const json = await res.json()
     return this.mapToInstitution(json.results?.[0] ?? json)
@@ -134,4 +134,14 @@ export function createScorecardService(): ICollegeScorecardService {
   const apiKey = process.env.COLLEGE_SCORECARD_API_KEY
   if (!apiKey) throw new Error('COLLEGE_SCORECARD_API_KEY not set')
   return new CollegeScorecardService(apiKey)
+}
+
+// Scorecard 4xx responses return JSON with `errors[]` describing the bad
+// param. Including a body snippet in the Error message makes X-Scorecard-Status
+// failures diagnosable from server logs without a reproducer.
+async function scorecardError(res: Response, context: unknown): Promise<Error> {
+  const body = await res.text().catch(() => '')
+  return new Error(
+    `Scorecard API error: ${res.status} ${res.statusText} — ${body.slice(0, 300)} — context=${JSON.stringify(context)}`
+  )
 }

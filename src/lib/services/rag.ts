@@ -77,7 +77,11 @@ export class PineconeRAGService implements IRAGService {
 
       const filter: Record<string, unknown> = {}
       if (params.state) filter['state'] = { $eq: params.state }
-      if (params.type && params.type.length === 1) filter['type'] = { $eq: params.type[0] }
+      if (params.type && params.type.length > 0) {
+        filter['type'] = params.type.length === 1
+          ? { $eq: params.type[0] }
+          : { $in: params.type }
+      }
 
       const res = await this.index.query({
         vector,

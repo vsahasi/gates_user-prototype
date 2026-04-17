@@ -45,7 +45,7 @@ function formatInline(text: string, keyPrefix: string): ReactNode[] {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-primary underline decoration-primary/50 underline-offset-[3px] hover:decoration-primary"
+          className="font-medium text-[#1a6b5a] underline decoration-[#1a6b5a]/30 underline-offset-[3px] hover:decoration-[#1a6b5a]/60 transition-colors"
         >
           {href}
         </a>
@@ -79,7 +79,7 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
     const text = paraBuf.join('\n')
     paraBuf.length = 0
     elements.push(
-      <p key={`p${key++}`} className="mb-3 text-[15px] leading-relaxed text-foreground last:mb-0">
+      <p key={`p${key++}`} className="mb-3 text-[15px] leading-[1.7] text-foreground/90 last:mb-0">
         {formatInline(text, `p${key}`)}
       </p>
     )
@@ -98,12 +98,12 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
         key={`list${listKey}`}
         className={
           listType === 'ol'
-            ? 'my-3 list-decimal space-y-2 pl-5 text-[15px] leading-relaxed marker:text-muted-foreground'
-            : 'my-3 list-disc space-y-2 pl-5 text-[15px] leading-relaxed marker:text-muted-foreground'
+            ? 'my-3 list-decimal space-y-2 pl-5 text-[15px] leading-[1.7] marker:text-[#1a6b5a]/50 marker:font-semibold'
+            : 'my-3 list-disc space-y-2 pl-5 text-[15px] leading-[1.7] marker:text-[#1a6b5a]/40'
         }
       >
         {listItems.map((item, j) => (
-          <li key={j} className="pl-1">
+          <li key={j} className="pl-1 text-foreground/90">
             {formatInline(item, `li${listKey}-${j}`)}
           </li>
         ))}
@@ -126,7 +126,7 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
     if (t === '---' || t === '***') {
       flushList()
       flushPara()
-      elements.push(<hr key={`hr${key++}`} className="my-4 border-border/80" />)
+      elements.push(<hr key={`hr${key++}`} className="my-4 border-border/50" />)
       continue
     }
 
