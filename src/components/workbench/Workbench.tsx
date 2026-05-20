@@ -11,6 +11,7 @@ import { DecisionMatrix } from '@/components/workbench/DecisionMatrix'
 import { FinancialAidView } from '@/components/workbench/FinancialAidView'
 import { FAFSADraft } from '@/components/workbench/FAFSADraft'
 import { EssayDraft } from '@/components/workbench/EssayDraft'
+import { SuggestedReplies } from '@/components/workbench/SuggestedReplies'
 import { LeftRail } from '@/components/layout/LeftRail'
 import { RightRail } from '@/components/layout/RightRail'
 import { ShareModal } from '@/components/share/ShareModal'
@@ -30,6 +31,7 @@ import type {
   FinancialAidViewData,
   FAFSADraftData,
   EssayDraftData,
+  SuggestedRepliesData,
 } from '@/lib/types'
 import type { Student, Conversation, DbMessage, StudentSelection } from '@/lib/db/queries'
 
@@ -60,6 +62,7 @@ function renderStructuredComponent(
   selectedPathwayIds: Set<string>,
   onToggleSchool: (school: import('@/lib/types').School) => void,
   onTogglePathway: (pathway: import('@/lib/types').PathwayCard) => void,
+  onPrefillInput: (text: string) => void,
 ) {
   if (!component) return null
   if (component.type === 'comparison_table') {
@@ -111,6 +114,14 @@ function renderStructuredComponent(
   if (component.type === 'essay_draft') {
     return <EssayDraft data={component.data as EssayDraftData} />
   }
+  if (component.type === 'suggested_replies') {
+    return (
+      <SuggestedReplies
+        data={component.data as SuggestedRepliesData}
+        onSelect={onPrefillInput}
+      />
+    )
+  }
   return null
 }
 
@@ -152,8 +163,22 @@ export function Workbench({
     conversation.workbenchStateJson ? JSON.parse(conversation.workbenchStateJson) : {},
   )
   const [selections, setSelections] = useState<StudentSelection[]>([])
+  const [inputValue, setInputValue] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inputAreaRef = useRef<HTMLDivElement>(null)
   const currentPhase = inferPhase(messages)
+
+  function prefillInput(text: string) {
+    setInputValue(text)
+    // Smooth scroll to the input + focus the textarea (next tick so the value lands first)
+    setTimeout(() => {
+      inputAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      const textarea = inputAreaRef.current?.querySelector('textarea')
+      textarea?.focus()
+      // Place caret at end so the student can keep typing
+      textarea?.setSelectionRange(text.length, text.length)
+    }, 30)
+  }
 
   const patchWorkbench = useCallback(
     async (slotKey: string, data: unknown) => {
@@ -364,6 +389,7 @@ export function Workbench({
                   selectedPathwayIds,
                   (school) => toggleSelection('school', school.unitId, school.name),
                   (pathway) => toggleSelection('pathway', pathway.title, pathway.title),
+                  prefillInput,
                 )}
                 citations={m.citations}
                 rubricOverall={m.rubricOverall}
@@ -374,18 +400,29 @@ export function Workbench({
             <div ref={bottomRef} />
 
             {onlyOpener && (
-              <div className="mt-10">
-                <div className="rule-fancy mb-4"><span className="ornament">·  ·  ·</span></div>
-                <div className="caps-sm mb-3 text-center">Or begin here</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 stagger">
+              <div className="mt-10 stagger">
+                <div className="rule-fancy mb-5"><span className="ornament">·  ·  ·</span></div>
+                <div className="text-center mb-5">
+                  <div className="eyebrow-accent">A few ways to begin</div>
+                  <div className="font-display italic text-[15px] text-ink-soft mt-1">
+                    Tap one and we&apos;ll start from there. You can edit before sending.
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {suggestions.map((s) => (
                     <button
                       key={s}
-                      onClick={() => sendMessage(s.replace(/&apos;/g, "'"))}
-                      className="almanac-card text-left px-4 py-3 text-[14px] text-ink-mid hover:text-ink hover:border-forest hover:bg-forest-soft transition-all group"
+                      onClick={() => prefillInput(s.replace(/&apos;/g, "'"))}
+                      className="group almanac-card text-left px-5 py-4 hover:border-forest hover:bg-forest-soft transition-all duration-200 hover:shadow-[0_6px_18px_rgba(13,74,61,0.08)] hover:-translate-y-[1px]"
                     >
-                      <span className="font-display italic text-forest mr-2">›</span>
-                      {s.replace(/&apos;/g, '’')}
+                      <div className="flex items-start gap-3">
+                        <span className="font-display italic text-[18px] text-forest leading-none mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                          ›
+                        </span>
+                        <span className="text-[14.5px] text-ink-mid group-hover:text-ink leading-snug">
+                          {s.replace(/&apos;/g, '’')}
+                        </span>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -394,8 +431,13 @@ export function Workbench({
           </div>
         </div>
 
-        <div className="px-6 sm:px-8 pb-5 pt-2 bg-paper border-t border-rule">
-          <ChatInput onSend={sendMessage} disabled={isLoading} />
+        <div ref={inputAreaRef} className="px-6 sm:px-8 pb-5 pt-2 bg-paper border-t border-rule">
+          <ChatInput
+            onSend={sendMessage}
+            disabled={isLoading}
+            value={inputValue}
+            onValueChange={setInputValue}
+          />
         </div>
       </main>
       <RightRail

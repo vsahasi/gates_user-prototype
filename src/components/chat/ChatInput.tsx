@@ -1,28 +1,50 @@
 'use client'
 // src/components/chat/ChatInput.tsx
-import { useEffect, useState, useRef, KeyboardEvent } from 'react'
+import { useEffect, useState, useRef, KeyboardEvent, forwardRef, useImperativeHandle } from 'react'
 
 interface ChatInputProps {
   onSend: (message: string) => void
   disabled?: boolean
+  /** Optional controlled value. If provided, parent owns the input state. */
+  value?: string
+  onValueChange?: (v: string) => void
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
-  const [value, setValue] = useState('')
+export interface ChatInputHandle {
+  focus: () => void
+}
+
+export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
+  { onSend, disabled, value, onValueChange },
+  ref,
+) {
+  const isControlled = value !== undefined
+  const [inner, setInner] = useState('')
+  const current = isControlled ? (value as string) : inner
+
+  function setCurrent(next: string) {
+    if (isControlled) onValueChange?.(next)
+    else setInner(next)
+  }
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => textareaRef.current?.focus(),
+  }))
 
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = '0px'
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
-  }, [value])
+  }, [current])
 
   function handleSend() {
-    const trimmed = value.trim()
+    const trimmed = current.trim()
     if (!trimmed || disabled) return
     onSend(trimmed)
-    setValue('')
+    setCurrent('')
     textareaRef.current?.focus()
   }
 
@@ -33,7 +55,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   }
 
-  const canSend = value.trim().length > 0 && !disabled
+  const canSend = current.trim().length > 0 && !disabled
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -44,8 +66,8 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           </span>
           <textarea
             ref={textareaRef}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Write the question on your mind…"
             disabled={disabled}
@@ -75,4 +97,4 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       </div>
     </div>
   )
-}
+})

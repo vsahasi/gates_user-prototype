@@ -57,6 +57,11 @@ Use when the student is preparing or asking about FAFSA. Pre-fill the 'value' fi
 <!-- /COMPONENT -->
 Use only when the student explicitly asks for a personal-statement draft.
 
+<!-- COMPONENT:suggested_replies -->
+{"options": ["Yes, I'm interested in nursing", "I want to explore something else", "Tell me more about both"]}
+<!-- /COMPONENT -->
+Use this AGGRESSIVELY whenever you ask the student a question, especially open-ended ones. Offer 2-4 short candidate answers (each ≤ 90 characters) that span the realistic range of responses. The student clicks one to prefill the chat input, where they can edit before sending. This is the PREFERRED follow-up when you've just asked a question — it lowers the cognitive load of typing from scratch. Don't use it when the student's answer would obviously be unique (e.g., "What's your name?").
+
 MARKDOWN FOR CHAT UI:
 Use ## and ### for section headings, numbered lists (1. 2. …) and bullets (- item). Put bare URLs as https://… — the app will turn them into links. Prefer headings over bold-only lines for structure.
 

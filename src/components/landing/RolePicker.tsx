@@ -5,53 +5,50 @@ type Role = 'student' | 'adult'
 
 const ROLES: Array<{
   id: Role
-  numeral: string
-  title: string
-  italic: string
+  eyebrow: string
+  prefix: string
+  accent: string
   desc: string
 }> = [
   {
     id: 'student',
-    numeral: 'I.',
-    title: 'I am a',
-    italic: 'student',
-    desc: 'Exploring careers, building a shortlist, planning the next step.',
+    eyebrow: 'For the one choosing',
+    prefix: 'I’m a',
+    accent: 'student',
+    desc: 'Explore careers, narrow a shortlist, plan the next step.',
   },
   {
     id: 'adult',
-    numeral: 'II.',
-    title: 'I am a',
-    italic: 'caring adult',
-    desc: 'Helping a student you love — parent, counselor, mentor, family.',
+    eyebrow: 'For the one supporting',
+    prefix: 'I’m a',
+    accent: 'caring adult',
+    desc: 'Parent, counselor, mentor — see what your student is working through.',
   },
 ]
 
 export function RolePicker({ onPick }: { onPick: (r: Role) => void }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       {ROLES.map((r) => (
         <button
           key={r.id}
           onClick={() => onPick(r.id)}
-          className="group relative text-left almanac-card hover:border-forest transition-all duration-200 px-6 py-5 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(13,74,61,0.10)]"
+          className="group block w-full text-left almanac-card hover:border-forest hover:shadow-[0_12px_32px_rgba(13,74,61,0.10)] transition-all duration-300 px-7 py-8"
         >
-          <div className="flex items-start gap-5">
-            <span
-              aria-hidden
-              className="font-display serif-numeral text-[34px] leading-none text-forest opacity-50 group-hover:opacity-100 transition-opacity"
-            >
-              {r.numeral}
-            </span>
-            <div className="flex-1">
-              <div className="font-display text-[22px] leading-tight text-ink">
-                {r.title}{' '}
-                <span className="italic font-light text-forest">{r.italic}</span>
+          <div className="flex items-start justify-between gap-5">
+            <div className="space-y-3 min-w-0">
+              <div className="eyebrow">{r.eyebrow}</div>
+              <div className="font-display text-[34px] leading-[1.05] text-ink group-hover:text-forest-deep transition-colors">
+                {r.prefix}{' '}
+                <span className="italic font-light text-forest">{r.accent}</span>
               </div>
-              <p className="text-[14px] text-ink-mid leading-relaxed mt-1.5">{r.desc}</p>
+              <p className="text-[13.5px] text-ink-mid leading-relaxed max-w-[34ch]">
+                {r.desc}
+              </p>
             </div>
             <span
               aria-hidden
-              className="text-ink-faint group-hover:text-forest group-hover:translate-x-1 transition-all font-display text-xl mt-1"
+              className="font-display text-[28px] text-ink-faint group-hover:text-forest group-hover:translate-x-1 transition-all shrink-0 leading-none mt-1.5"
             >
               →
             </span>

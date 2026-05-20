@@ -88,6 +88,7 @@ export interface StructuredComponent {
     | 'financial_aid_view'
     | 'fafsa_draft'
     | 'essay_draft'
+    | 'suggested_replies'
   data:
     | ComparisonTableData
     | PathwayCardsData
@@ -96,6 +97,11 @@ export interface StructuredComponent {
     | FinancialAidViewData
     | FAFSADraftData
     | EssayDraftData
+    | SuggestedRepliesData
+}
+
+export interface SuggestedRepliesData {
+  options: string[]
 }
 
 export interface DecisionMatrixData {
