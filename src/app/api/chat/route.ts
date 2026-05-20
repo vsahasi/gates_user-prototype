@@ -7,6 +7,7 @@ import { runMigrations } from '@/lib/db'
 import { appendMessage, getConversation, createConversation } from '@/lib/db/queries'
 import { classifyTone } from '@/lib/adaptive/tone'
 import { extractCitations, stripCitations } from '@/lib/orchestration/citation-extractor'
+import { parseStructuredComponentMessage } from '@/lib/chat/structured-component'
 import { scoreAgainstRubric } from '@/lib/orchestration/rubric'
 import { getDb } from '@/lib/db'
 import {
@@ -228,17 +229,18 @@ export async function POST(request: NextRequest) {
         const retrievedDataStr = JSON.stringify({ rag, scorecard, onet })
         const outputCheck = checkOutputGuardrails(fullResponse, retrievedDataStr)
 
-        // Citations: extract [cite: …] markers, keep them in the stored text for
-        // round-trip but they were not stripped from the live stream — clients
-        // tolerate the markers and render them via CitationFootnotes.
-        const citations = extractCitations(outputCheck.response)
-        const visibleText = stripCitations(outputCheck.response)
+        // Strip COMPONENT markers from the persisted text; the parsed component
+        // is stored alongside as structuredComponentJson so reloads can re-render it.
+        const parsed = parseStructuredComponentMessage(outputCheck.response)
+        const citations = extractCitations(parsed.cleanText)
+        const visibleText = stripCitations(parsed.cleanText)
 
-        // Persist assistant turn with signals + citations
+        // Persist assistant turn with structured component + signals + citations
         const assistantRow = appendMessage({
           conversationId: conv.id,
           role: 'assistant',
           content: visibleText,
+          structuredComponent: parsed.component ?? undefined,
           signals,
           citations: citations.length > 0 ? citations : undefined,
         })

@@ -47,6 +47,10 @@ next-env.d.ts
 /data/*.db-wal
 /data/*.db-shm
 
+# IPEDS raw CSV downloads — large, not for git
+/data/ipeds/*.csv
+/data/ipeds/*.zip
+
 # Eval reports (regenerated)
 /eval/reports/*.json
 !/eval/reports/.gitkeep
