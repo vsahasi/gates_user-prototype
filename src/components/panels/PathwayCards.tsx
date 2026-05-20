@@ -1,10 +1,16 @@
 // src/components/panels/PathwayCards.tsx
 import type { PathwayCardsData, PathwayCard } from '@/lib/types'
 
+interface PathwayCardsProps {
+  data: PathwayCardsData
+  selectedPathwayIds?: Set<string>
+  onToggleSelect?: (pathway: PathwayCard) => void
+}
+
 const FIT_CONFIG = {
-  high:   { label: 'Strong fit',       text: 'text-forest',  bg: 'bg-forest-soft border-forest/25' },
-  medium: { label: 'Worth exploring',  text: 'text-marigold', bg: 'bg-amber-50 border-marigold/30' },
-  low:    { label: 'Stretch',          text: 'text-rust',    bg: 'bg-rust-soft border-rust/25' },
+  high:   { label: 'Strong fit',      text: 'text-forest',  bg: 'bg-forest-soft border-forest/20' },
+  medium: { label: 'Worth exploring', text: 'text-marigold', bg: 'bg-amber-50 border-marigold/25' },
+  low:    { label: 'Stretch',         text: 'text-rust',    bg: 'bg-rust-soft border-rust/20' },
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -16,51 +22,80 @@ const TYPE_LABELS: Record<string, string> = {
   apprenticeship: 'Apprenticeship',
 }
 
-export function PathwayCards({ data }: { data: PathwayCardsData }) {
+export function PathwayCards({ data, selectedPathwayIds, onToggleSelect }: PathwayCardsProps) {
   return (
-    <div className="flex gap-3 overflow-x-auto refined-scroll pb-3 -mx-1 px-1 snap-x snap-mandatory">
+    <div className="flex gap-4 overflow-x-auto refined-scroll pb-3 -mx-1 px-1 snap-x snap-mandatory">
       {data.pathways.map((pathway, i) => (
-        <PathwayCardItem key={i} pathway={pathway} index={i} />
+        <PathwayCardItem
+          key={i}
+          pathway={pathway}
+          index={i}
+          isSelected={selectedPathwayIds?.has(pathway.title) ?? false}
+          onToggleSelect={onToggleSelect}
+        />
       ))}
     </div>
   )
 }
 
-function PathwayCardItem({ pathway, index }: { pathway: PathwayCard; index: number }) {
+function PathwayCardItem({
+  pathway,
+  index,
+  isSelected,
+  onToggleSelect,
+}: {
+  pathway: PathwayCard
+  index: number
+  isSelected: boolean
+  onToggleSelect?: (pathway: PathwayCard) => void
+}) {
   const fit = FIT_CONFIG[pathway.fit]
+  const interactive = !!onToggleSelect
   return (
     <article
-      className="min-w-[280px] max-w-[320px] snap-start almanac-card hover:shadow-[0_8px_20px_rgba(13,74,61,0.08)] hover:-translate-y-0.5 transition-all animate-slide-up flex flex-col"
+      onClick={interactive ? () => onToggleSelect!(pathway) : undefined}
+      className={[
+        'min-w-[315px] max-w-[360px] snap-start almanac-card hover:shadow-[0_10px_24px_rgba(13,74,61,0.08)] hover:-translate-y-0.5 transition-all animate-slide-up flex flex-col overflow-hidden',
+        interactive ? 'cursor-pointer' : '',
+        isSelected ? 'border-forest bg-forest-soft' : '',
+      ].join(' ')}
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      <header className="px-4 pt-4 pb-3 border-b border-rule">
-        <div className="flex items-baseline justify-between gap-2">
-          <div className="eyebrow">{TYPE_LABELS[pathway.type] ?? pathway.type}</div>
-          <span
-            className={`text-[10.5px] font-mono uppercase tracking-wider px-1.5 py-0.5 border rounded-sm ${fit.bg} ${fit.text}`}
-          >
-            {fit.label}
-          </span>
+      <header className={`px-5 pt-5 pb-4 border-b border-rule ${isSelected ? 'bg-forest-soft/60' : 'bg-card'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="eyebrow pt-1">{TYPE_LABELS[pathway.type] ?? pathway.type}</div>
+          <div className="flex items-center gap-2 shrink-0">
+            {isSelected && (
+              <span className="text-[10px] font-mono uppercase tracking-[0.13em] px-2 py-1 border border-forest/30 bg-forest-soft text-forest leading-none">
+                ◆ selected
+              </span>
+            )}
+            <span
+              className={`text-[10px] font-mono uppercase tracking-[0.13em] px-2 py-1 border rounded-sm leading-none ${fit.bg} ${fit.text}`}
+            >
+              {fit.label}
+            </span>
+          </div>
         </div>
-        <h3 className="font-display text-[19px] text-ink leading-tight mt-1.5">
+        <h3 className="font-display text-[21px] text-ink leading-[1.15] mt-2.5">
           {pathway.title}
         </h3>
       </header>
 
-      <p className="px-4 pt-3 text-[13.5px] text-ink-mid leading-relaxed flex-1">
+      <p className="px-5 pt-4 text-[14px] text-ink-mid leading-[1.65] flex-1">
         {pathway.description}
       </p>
 
-      <dl className="grid grid-cols-3 px-4 py-3 border-t border-rule mt-3 gap-x-2">
+      <dl className="mx-5 mt-5 rounded-md border border-rule bg-paper-warm/35 divide-y divide-rule">
         <Datum label="Duration" value={pathway.timeToComplete} />
         <Datum label="Cost" value={pathway.estimatedCost} />
         <Datum label="Earnings" value={pathway.earnings} />
       </dl>
 
-      <footer className="px-4 py-3 border-t border-rule bg-paper-warm/40">
-        <div className="eyebrow mb-1">Next step</div>
-        <p className="text-[13px] text-ink leading-snug">
-          <span className="font-display italic text-forest mr-1">›</span>
+      <footer className="px-5 py-4 mt-5 border-t border-rule bg-paper-warm/45">
+        <div className="eyebrow mb-2">Next step</div>
+        <p className="text-[13.5px] text-ink leading-[1.55] flex gap-2">
+          <span className="font-display italic text-forest text-[18px] leading-none mt-0.5">›</span>
           {pathway.nextStep}
         </p>
       </footer>
@@ -70,9 +105,11 @@ function PathwayCardItem({ pathway, index }: { pathway: PathwayCard; index: numb
 
 function Datum({ label, value }: { label: string; value: string }) {
   return (
-    <div className="text-center">
-      <div className="serif-numeral text-[15px] text-ink leading-tight">{value}</div>
-      <div className="eyebrow mt-0.5 text-[9.5px]">{label}</div>
+    <div className="grid grid-cols-[82px_minmax(0,1fr)] items-start gap-3 px-3.5 py-3">
+      <dt className="eyebrow text-[9.5px] leading-5">{label}</dt>
+      <dd className="text-[13.5px] text-ink leading-[1.35] font-medium">
+        {value}
+      </dd>
     </div>
   )
 }

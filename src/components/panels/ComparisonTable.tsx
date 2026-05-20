@@ -5,6 +5,8 @@ interface ComparisonTableProps {
   schools: School[]
   fields: Array<keyof School>
   labels: Record<string, string>
+  selectedUnitIds?: Set<string>
+  onToggleSelect?: (school: School) => void
 }
 
 function formatValue(school: School, field: keyof School): string {
@@ -46,8 +48,10 @@ function isBest(school: School, field: keyof School, allSchools: School[]): bool
   return false
 }
 
-export function ComparisonTable({ schools, fields, labels }: ComparisonTableProps) {
+export function ComparisonTable({ schools, fields, labels, selectedUnitIds, onToggleSelect }: ComparisonTableProps) {
   if (!schools.length) return null
+
+  const interactive = !!onToggleSelect
 
   return (
     <figure className="almanac-card overflow-hidden animate-slide-up">
@@ -73,49 +77,73 @@ export function ComparisonTable({ schools, fields, labels }: ComparisonTableProp
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">
-            {schools.map((school) => (
-              <tr key={school.unitId} className="group hover:bg-paper-warm/60">
-                <td className="px-5 py-3">
-                  <div className="font-display text-[15px] text-ink leading-tight">
-                    {school.name}
-                  </div>
-                  <div className="text-[11px] text-ink-soft mt-0.5">
-                    {school.city}, {school.state}
-                  </div>
-                </td>
-                {fields.map((f) => {
-                  const best = isBest(school, f, schools)
-                  return (
-                    <td
-                      key={f}
-                      className={`px-4 py-3 text-right whitespace-nowrap tabular-nums font-mono text-[13px] ${
-                        best ? 'text-forest-deep font-semibold' : 'text-ink-mid'
-                      }`}
-                    >
-                      <span className="relative">
-                        {formatValue(school, f)}
-                        {best && (
-                          <span
-                            aria-hidden
-                            className="absolute -left-3 top-1/2 -translate-y-1/2 text-forest"
-                            style={{ fontSize: '8px' }}
-                          >
-                            ◆
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
+            {schools.map((school) => {
+              const isSelected = selectedUnitIds?.has(school.unitId) ?? false
+              return (
+                <tr
+                  key={school.unitId}
+                  onClick={interactive ? () => onToggleSelect!(school) : undefined}
+                  className={[
+                    'group transition-colors',
+                    interactive ? 'cursor-pointer' : '',
+                    isSelected
+                      ? 'bg-forest-soft hover:bg-forest-soft/80'
+                      : interactive
+                        ? 'hover:bg-paper-warm/60'
+                        : 'hover:bg-paper-warm/60',
+                  ].join(' ')}
+                >
+                  <td className="px-5 py-3">
+                    <div className="font-display text-[15px] text-ink leading-tight flex items-center gap-1.5">
+                      {isSelected && (
+                        <span
+                          aria-hidden
+                          className="text-forest"
+                          style={{ fontSize: '9px', lineHeight: 1 }}
+                        >
+                          ◆
+                        </span>
+                      )}
+                      {school.name}
+                    </div>
+                    <div className="text-[11px] text-ink-soft mt-0.5">
+                      {school.city}, {school.state}
+                    </div>
+                  </td>
+                  {fields.map((f) => {
+                    const best = isBest(school, f, schools)
+                    return (
+                      <td
+                        key={f}
+                        className={`px-4 py-3 text-right whitespace-nowrap tabular-nums font-mono text-[13px] ${
+                          best ? 'text-forest-deep font-semibold' : 'text-ink-mid'
+                        }`}
+                      >
+                        <span className="relative">
+                          {formatValue(school, f)}
+                          {best && (
+                            <span
+                              aria-hidden
+                              className="absolute -left-3 top-1/2 -translate-y-1/2 text-forest"
+                              style={{ fontSize: '8px' }}
+                            >
+                              ◆
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
       <div className="flex items-center gap-2 px-5 py-2.5 border-t border-rule bg-paper-warm/40">
         <span className="font-display italic text-forest text-[12px]">◆</span>
         <span className="text-[11px] text-ink-soft">
-          Diamond marks the best value in each column. Figures sourced from College Scorecard 2024; verify with each institution.
+          Diamond marks the best value in each column{interactive ? '; click a row to mark a selection' : ''}. Figures sourced from College Scorecard 2024; verify with each institution.
         </span>
       </div>
     </figure>

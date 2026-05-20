@@ -1,6 +1,6 @@
 // src/components/workbench/Workbench.tsx
 'use client'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageBubble, TypingIndicator } from '@/components/chat/MessageBubble'
 import { ChatInput } from '@/components/chat/ChatInput'
@@ -31,7 +31,7 @@ import type {
   FAFSADraftData,
   EssayDraftData,
 } from '@/lib/types'
-import type { Student, Conversation, DbMessage } from '@/lib/db/queries'
+import type { Student, Conversation, DbMessage, StudentSelection } from '@/lib/db/queries'
 
 type Phase = 'exploration' | 'preparation' | 'decision' | 'application' | 'transition'
 
@@ -56,6 +56,10 @@ function renderStructuredComponent(
   component: StructuredComponent | undefined,
   onPatch: (slotKey: string, data: unknown) => void,
   messageKey: string,
+  selectedUnitIds: Set<string>,
+  selectedPathwayIds: Set<string>,
+  onToggleSchool: (school: import('@/lib/types').School) => void,
+  onTogglePathway: (pathway: import('@/lib/types').PathwayCard) => void,
 ) {
   if (!component) return null
   if (component.type === 'comparison_table') {
@@ -63,10 +67,24 @@ function renderStructuredComponent(
     const schools = (data.schools as unknown as string[])
       .map((id) => SCHOOLS.find((s) => s.unitId === id))
       .filter(Boolean) as typeof SCHOOLS
-    return <ComparisonTable schools={schools} fields={data.fields} labels={data.labels} />
+    return (
+      <ComparisonTable
+        schools={schools}
+        fields={data.fields}
+        labels={data.labels}
+        selectedUnitIds={selectedUnitIds}
+        onToggleSelect={onToggleSchool}
+      />
+    )
   }
   if (component.type === 'pathway_cards') {
-    return <PathwayCards data={component.data as PathwayCardsData} />
+    return (
+      <PathwayCards
+        data={component.data as PathwayCardsData}
+        selectedPathwayIds={selectedPathwayIds}
+        onToggleSelect={onTogglePathway}
+      />
+    )
   }
   if (component.type === 'timeline_checklist') {
     return <TimelineChecklist data={component.data as TimelineChecklistData} />
@@ -133,6 +151,7 @@ export function Workbench({
   const [workbenchState, setWorkbenchState] = useState<Record<string, unknown>>(() =>
     conversation.workbenchStateJson ? JSON.parse(conversation.workbenchStateJson) : {},
   )
+  const [selections, setSelections] = useState<StudentSelection[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const currentPhase = inferPhase(messages)
 
@@ -151,6 +170,42 @@ export function Workbench({
       }
     },
     [workbenchState, conversation.id],
+  )
+
+  useEffect(() => {
+    fetch(`/api/student/${student.id}/selections`)
+      .then((r) => r.json())
+      .then(({ selections: loaded }: { selections: StudentSelection[] }) => setSelections(loaded))
+      .catch(() => {/* Non-critical */})
+  }, [student.id])
+
+  async function toggleSelection(
+    kind: StudentSelection['kind'],
+    refId: string,
+    refLabel: string,
+  ) {
+    const existing = selections.find((s) => s.kind === kind && s.refId === refId)
+    if (existing) {
+      await fetch(`/api/student/${student.id}/selections?id=${existing.id}`, { method: 'DELETE' })
+      setSelections((prev) => prev.filter((s) => s.id !== existing.id))
+    } else {
+      const res = await fetch(`/api/student/${student.id}/selections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, refId, refLabel }),
+      })
+      const { selection } = await res.json()
+      setSelections((prev) => [selection, ...prev])
+    }
+  }
+
+  const selectedUnitIds = useMemo(
+    () => new Set(selections.filter((s) => s.kind === 'school').map((s) => s.refId)),
+    [selections],
+  )
+  const selectedPathwayIds = useMemo(
+    () => new Set(selections.filter((s) => s.kind === 'pathway').map((s) => s.refId)),
+    [selections],
   )
 
   const scrollToBottom = useCallback(() => {
@@ -274,13 +329,23 @@ export function Workbench({
                 {conversation.title}
               </h2>
             </div>
-            <div className="hidden sm:flex items-baseline gap-2 text-ink-soft">
-              <span className="font-mono text-[11px] uppercase tracking-wider">entries</span>
-              <span className="serif-numeral text-[20px] text-forest">
-                {messages.filter((m) => m.role === 'user').length
-                  .toString()
-                  .padStart(2, '0')}
-              </span>
+            <div className="hidden sm:flex items-baseline gap-5 text-ink-soft">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-[11px] uppercase tracking-wider">entries</span>
+                <span className="serif-numeral text-[20px] text-forest">
+                  {messages.filter((m) => m.role === 'user').length
+                    .toString()
+                    .padStart(2, '0')}
+                </span>
+              </div>
+              {selections.length > 0 && (
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-forest" style={{ fontSize: '9px', lineHeight: 1 }} aria-hidden>◆</span>
+                  <span className="font-mono text-[11px] text-forest uppercase tracking-wider">
+                    {selections.length} {selections.length === 1 ? 'selection' : 'selections'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -295,6 +360,10 @@ export function Workbench({
                   m.structuredComponent,
                   patchWorkbench,
                   `msg-${i}`,
+                  selectedUnitIds,
+                  selectedPathwayIds,
+                  (school) => toggleSelection('school', school.unitId, school.name),
+                  (pathway) => toggleSelection('pathway', pathway.title, pathway.title),
                 )}
                 citations={m.citations}
                 rubricOverall={m.rubricOverall}
