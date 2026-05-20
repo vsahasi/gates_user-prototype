@@ -10,9 +10,8 @@ import {
   getAdult,
 } from '@/lib/db/queries'
 
-runMigrations()
-
 export async function GET() {
+  runMigrations()
   const students = listStudents()
   return NextResponse.json({ students })
 }
@@ -24,6 +23,7 @@ type Body =
   | { role: 'adult'; existingId: string }
 
 export async function POST(req: Request) {
+  runMigrations()
   const body = (await req.json()) as Body
 
   let id: string

@@ -21,7 +21,10 @@ export function closeDb(): void {
   }
 }
 
+let _migrated = false
+
 export function runMigrations(): void {
+  if (_migrated) return
   const db = getDb()
   const dir = join(process.cwd(), 'db', 'migrations')
   const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
@@ -29,6 +32,7 @@ export function runMigrations(): void {
     const sql = readFileSync(join(dir, f), 'utf8')
     db.exec(sql)
   }
+  _migrated = true
 }
 
 export function transact<T>(fn: () => T): T {

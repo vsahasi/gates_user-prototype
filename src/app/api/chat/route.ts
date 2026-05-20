@@ -13,8 +13,6 @@ import {
   type Signals,
 } from '@/lib/adaptive/signals'
 
-// Idempotent (CREATE IF NOT EXISTS); cheap.
-runMigrations()
 import { checkInputGuardrails, checkOutputGuardrails, formatDataVintageDisclosure } from '@/lib/orchestration/guardrails'
 import { classifyIntent } from '@/lib/orchestration/intent'
 import { buildUserMessage, SYSTEM_PROMPT } from '@/lib/orchestration/prompt-builder'
@@ -68,6 +66,7 @@ const CAREER_INTENTS: ReadonlySet<IntentCategory> = new Set([
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: NextRequest) {
+  runMigrations()
   const body = await request.json()
   // profile is client-supplied and trusted; add schema validation before production
   const { message, sessionId, personaId, profile, studentId } = body as {
