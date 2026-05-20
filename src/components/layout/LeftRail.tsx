@@ -1,7 +1,6 @@
 // src/components/layout/LeftRail.tsx
 'use client'
 import Link from 'next/link'
-import { Plus, Share2, Download, LogOut } from 'lucide-react'
 import type { Conversation, Student } from '@/lib/db/queries'
 
 interface Props {
@@ -13,6 +12,14 @@ interface Props {
   onExport: () => void
 }
 
+function relativeShort(ts: number): string {
+  const d = Math.floor((Date.now() - ts) / 1000)
+  if (d < 60) return 'now'
+  if (d < 3600) return `${Math.floor(d / 60)}m`
+  if (d < 86400) return `${Math.floor(d / 3600)}h`
+  return `${Math.floor(d / 86400)}d`
+}
+
 export function LeftRail({
   student,
   conversations,
@@ -22,48 +29,94 @@ export function LeftRail({
   onExport,
 }: Props) {
   return (
-    <aside className="w-[260px] shrink-0 border-r border-border/60 bg-[#f5f5f2] flex flex-col h-[calc(100vh-53px)]">
-      <div className="p-4 border-b border-border/60">
-        <div className="text-xs uppercase tracking-wider text-muted-foreground">Signed in as</div>
-        <div className="font-medium truncate">{student.displayName}</div>
+    <aside className="w-[268px] shrink-0 border-r border-rule bg-paper-warm flex flex-col h-[calc(100vh-57px)]">
+      {/* Identity card */}
+      <div className="px-5 pt-5 pb-4 border-b border-rule">
+        <div className="eyebrow">Logged journal of</div>
+        <div className="font-display text-[22px] leading-tight text-ink mt-1">
+          {student.displayName}
+        </div>
+        {student.personaId && (
+          <div className="text-[11px] text-ink-soft font-mono mt-0.5">
+            · {student.personaId}
+          </div>
+        )}
       </div>
+
+      {/* New conversation */}
       <button
         onClick={onNew}
-        className="mx-3 mt-3 mb-1 px-3 py-2 rounded-lg bg-white border border-border/60 text-sm flex items-center gap-2 hover:border-[#1a6b5a]/50"
+        className="mx-4 mt-4 mb-2 btn-ghost justify-start border border-rule bg-card hover:bg-paper hover:border-forest/40"
       >
-        <Plus className="h-4 w-4" /> New conversation
+        <span className="font-display italic text-[15px] text-forest">+</span>
+        <span>New conversation</span>
       </button>
-      <div className="flex-1 overflow-y-auto refined-scroll px-2 py-2 space-y-1">
-        {conversations.map((c) => (
-          <Link
-            key={c.id}
-            href={`/student/${student.id}/${c.id}`}
-            className={`block px-3 py-2 rounded-lg text-sm truncate ${
-              c.id === activeConvId ? 'bg-white border border-border/60' : 'hover:bg-white/60'
-            }`}
-          >
-            {c.title}
-          </Link>
-        ))}
+
+      {/* Section heading */}
+      <div className="px-5 pt-4 pb-1.5 flex items-center justify-between">
+        <span className="eyebrow">Threads</span>
+        <span className="eyebrow font-mono">
+          {conversations.length.toString().padStart(2, '0')}
+        </span>
       </div>
-      <div className="border-t border-border/60 p-2 space-y-1">
-        <button
-          onClick={onShare}
-          className="w-full px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-white/60"
-        >
-          <Share2 className="h-4 w-4" /> Share with parent / counselor
+
+      <div className="flex-1 overflow-y-auto refined-scroll px-3 pb-3 space-y-0.5">
+        {conversations.length === 0 && (
+          <div className="px-3 py-6 text-[13px] text-ink-soft font-display italic">
+            Nothing yet. Start with the question that&apos;s on your mind.
+          </div>
+        )}
+        {conversations.map((c) => {
+          const active = c.id === activeConvId
+          return (
+            <Link
+              key={c.id}
+              href={`/student/${student.id}/${c.id}`}
+              className={`block px-3 py-2.5 rounded-sm text-[13.5px] transition-colors relative ${
+                active
+                  ? 'bg-card border border-rule shadow-[0_1px_2px_rgba(0,0,0,0.03)]'
+                  : 'hover:bg-card/60 border border-transparent'
+              }`}
+            >
+              {active && (
+                <span
+                  aria-hidden
+                  className="absolute left-0 top-2 bottom-2 w-[2px] bg-forest -translate-x-3"
+                />
+              )}
+              <div className="flex items-baseline justify-between gap-2">
+                <span
+                  className={`truncate ${
+                    active ? 'text-ink font-medium' : 'text-ink-mid'
+                  }`}
+                >
+                  {c.title}
+                </span>
+                <span className="text-[10.5px] font-mono text-ink-faint shrink-0">
+                  {relativeShort(c.lastMessageAt)}
+                </span>
+              </div>
+              {c.phase && (
+                <div className="eyebrow mt-1 text-[9.5px] text-forest/70">{c.phase}</div>
+              )}
+            </Link>
+          )
+        })}
+      </div>
+
+      {/* Footer actions */}
+      <div className="border-t border-rule p-3 space-y-1">
+        <button onClick={onShare} className="btn-ghost w-full justify-start">
+          <span className="font-display italic text-forest">¶</span>
+          <span>Share with a caring adult</span>
         </button>
-        <button
-          onClick={onExport}
-          className="w-full px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-white/60"
-        >
-          <Download className="h-4 w-4" /> Export my memory
+        <button onClick={onExport} className="btn-ghost w-full justify-start">
+          <span className="font-display italic text-forest">↓</span>
+          <span>Export this almanac</span>
         </button>
-        <Link
-          href="/"
-          className="w-full px-3 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-white/60"
-        >
-          <LogOut className="h-4 w-4" /> Switch role
+        <Link href="/" className="btn-ghost w-full justify-start">
+          <span className="font-display italic text-ink-soft">↩</span>
+          <span>Switch role</span>
         </Link>
       </div>
     </aside>

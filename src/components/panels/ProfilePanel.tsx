@@ -21,7 +21,6 @@ const GRADE_OPTIONS = [
 
 type DraftShape = Pick<StudentProfile, 'grade' | 'state' | 'gpa' | 'interests' | 'goals'>
 
-// Only checks form-visible fields. Update this function when new fields are added to the form.
 export function isDirty(draft: DraftShape, profile: DraftShape): boolean {
   return (
     draft.grade !== profile.grade ||
@@ -60,181 +59,185 @@ export function ProfilePanel({ profile, onUpdate }: ProfilePanelProps) {
     setDraft((d) => ({ ...d, [field]: d[field].filter((v) => v !== value) }))
   }
 
+  const dirty = isDirty(draft, profile)
+
   return (
-    <div className="flex flex-col">
-      <div className="p-4 space-y-3.5">
-        {/* Grade */}
-        <div className="space-y-1">
-          <label htmlFor="profile-grade" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Grade
-          </label>
+    <div className="space-y-5">
+      {/* Inline grid for short facts */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+        <Field label="Grade">
           <select
-            id="profile-grade"
-            className="w-full rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
+            className="field-line w-full"
             value={draft.grade ?? ''}
             onChange={(e) =>
               setDraft((d) => ({ ...d, grade: e.target.value ? Number(e.target.value) : null }))
             }
           >
-            <option value="">Select grade</option>
+            <option value="">—</option>
             {GRADE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
-        </div>
+        </Field>
 
-        {/* State */}
-        <div className="space-y-1">
-          <label htmlFor="profile-state" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            State
-          </label>
+        <Field label="State">
           <select
-            id="profile-state"
-            className="w-full rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
+            className="field-line w-full"
             value={draft.state ?? ''}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, state: e.target.value || null }))
-            }
+            onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value || null }))}
           >
-            <option value="">Select state</option>
+            <option value="">—</option>
             {US_STATES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-        </div>
+        </Field>
 
-        {/* GPA */}
-        <div className="space-y-1">
-          <label htmlFor="profile-gpa" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            GPA
-          </label>
+        <Field label="GPA">
           <input
-            id="profile-gpa"
             type="number"
             min={0}
             max={4.0}
             step={0.1}
-            className="w-full rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
+            className="field-line w-full tabular-nums"
             value={draft.gpa ?? ''}
             onChange={(e) =>
-              setDraft((d) => ({ ...d, gpa: e.target.value ? Math.min(4.0, Math.max(0, Number(e.target.value))) : null }))
+              setDraft((d) => ({
+                ...d,
+                gpa: e.target.value ? Math.min(4.0, Math.max(0, Number(e.target.value))) : null,
+              }))
             }
-            placeholder="e.g. 3.5"
+            placeholder="3.5"
           />
-        </div>
-
-        {/* Interests */}
-        <div className="space-y-1">
-          <label htmlFor="profile-interests" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Interests
-          </label>
-          <div className="flex gap-1.5">
-            <input
-              id="profile-interests"
-              className="flex-1 rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
-              placeholder="Add interest…"
-              value={interestInput}
-              onChange={(e) => setInterestInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
-                  e.preventDefault()
-                  addTag('interests', interestInput)
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="rounded-lg border border-border/60 bg-[#fafaf8] px-2.5 py-2 text-sm text-muted-foreground hover:bg-[#1a6b5a]/5 hover:text-[#1a6b5a] hover:border-[#1a6b5a]/20 transition-colors"
-              onClick={() => addTag('interests', interestInput)}
-            >
-              +
-            </button>
-          </div>
-          {draft.interests.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1.5">
-              {draft.interests.map((interest) => (
-                <span
-                  key={interest}
-                  className="inline-flex items-center gap-1 rounded-full bg-[#1a6b5a]/8 text-[#1a6b5a] px-2.5 py-0.5 text-[11px] font-medium"
-                >
-                  {interest}
-                  <button
-                    type="button"
-                    onClick={() => removeTag('interests', interest)}
-                    className="text-[#1a6b5a]/50 hover:text-[#1a6b5a] leading-none ml-0.5"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Goals */}
-        <div className="space-y-1">
-          <label htmlFor="profile-goals" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Goals
-          </label>
-          <div className="flex gap-1.5">
-            <input
-              id="profile-goals"
-              className="flex-1 rounded-lg border border-border/60 bg-[#fafaf8] px-3 py-2 text-sm focus:border-[#1a6b5a]/30 focus:outline-none focus:ring-1 focus:ring-[#1a6b5a]/20 transition-colors"
-              placeholder="Add goal…"
-              value={goalInput}
-              onChange={(e) => setGoalInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ',') {
-                  e.preventDefault()
-                  addTag('goals', goalInput)
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="rounded-lg border border-border/60 bg-[#fafaf8] px-2.5 py-2 text-sm text-muted-foreground hover:bg-[#1a6b5a]/5 hover:text-[#1a6b5a] hover:border-[#1a6b5a]/20 transition-colors"
-              onClick={() => addTag('goals', goalInput)}
-            >
-              +
-            </button>
-          </div>
-          {draft.goals.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1.5">
-              {draft.goals.map((goal) => (
-                <span
-                  key={goal}
-                  className="inline-flex items-center gap-1 rounded-full bg-[#e07856]/10 text-[#c06040] px-2.5 py-0.5 text-[11px] font-medium"
-                >
-                  {goal}
-                  <button
-                    type="button"
-                    onClick={() => removeTag('goals', goal)}
-                    className="text-[#c06040]/50 hover:text-[#c06040] leading-none ml-0.5"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        </Field>
       </div>
 
-      {/* Update button */}
-      <div className="px-4 pb-4">
-        <button
-          type="button"
-          className={`w-full rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-            isDirty(draft, profile)
-              ? 'bg-[#1a6b5a] text-white shadow-sm hover:bg-[#155a4b] active:scale-[0.98]'
-              : 'bg-muted text-muted-foreground/50 cursor-not-allowed'
-          }`}
-          disabled={!isDirty(draft, profile)}
-          onClick={() => onUpdate(draft)}
-        >
-          Update Profile
-        </button>
-      </div>
+      {/* Interests */}
+      <Field label="Interests">
+        <TagInput
+          value={interestInput}
+          setValue={setInterestInput}
+          onAdd={() => addTag('interests', interestInput)}
+          placeholder="What lights you up?"
+        />
+        {draft.interests.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {draft.interests.map((t) => (
+              <Tag key={t} variant="forest" onRemove={() => removeTag('interests', t)}>
+                {t}
+              </Tag>
+            ))}
+          </div>
+        )}
+      </Field>
+
+      {/* Goals */}
+      <Field label="Goals">
+        <TagInput
+          value={goalInput}
+          setValue={setGoalInput}
+          onAdd={() => addTag('goals', goalInput)}
+          placeholder="Something you're aiming for…"
+        />
+        {draft.goals.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {draft.goals.map((g) => (
+              <Tag key={g} variant="rust" onRemove={() => removeTag('goals', g)}>
+                {g}
+              </Tag>
+            ))}
+          </div>
+        )}
+      </Field>
+
+      <button
+        type="button"
+        className={`w-full text-[13px] font-medium py-2 rounded-sm transition-all border ${
+          dirty
+            ? 'border-ink bg-ink text-paper hover:bg-black'
+            : 'border-rule bg-transparent text-ink-faint cursor-not-allowed'
+        }`}
+        disabled={!dirty}
+        onClick={() => onUpdate(draft)}
+      >
+        {dirty ? 'Save changes →' : 'Saved'}
+      </button>
     </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <div className="eyebrow mb-1">{label}</div>
+      {children}
+    </label>
+  )
+}
+
+function TagInput({
+  value,
+  setValue,
+  onAdd,
+  placeholder,
+}: {
+  value: string
+  setValue: (v: string) => void
+  onAdd: () => void
+  placeholder?: string
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        className="field-line flex-1"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault()
+            onAdd()
+          }
+        }}
+      />
+      <button
+        type="button"
+        onClick={onAdd}
+        className="text-[18px] leading-none px-1.5 py-1 text-ink-soft hover:text-forest transition-colors font-display"
+        aria-label="Add"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
+function Tag({
+  children,
+  onRemove,
+  variant,
+}: {
+  children: React.ReactNode
+  onRemove: () => void
+  variant: 'forest' | 'rust'
+}) {
+  const styles =
+    variant === 'forest'
+      ? 'bg-forest-soft text-forest-deep border-forest/20'
+      : 'bg-rust-soft text-rust border-rust/25'
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[11.5px] font-medium ${styles}`}
+    >
+      {children}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="opacity-50 hover:opacity-100 leading-none ml-0.5"
+        aria-label={`Remove ${children}`}
+      >
+        ×
+      </button>
+    </span>
   )
 }

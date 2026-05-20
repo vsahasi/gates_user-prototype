@@ -24,28 +24,57 @@ interface Props {
   citations?: Array<{ source: string }>
 }
 
-export function RightRail({ profile, onProfileChange, currentPhase, signals, citations }: Props) {
+export function RightRail({
+  profile,
+  onProfileChange,
+  currentPhase,
+  signals,
+  citations,
+}: Props) {
   return (
-    <aside className="w-[300px] shrink-0 border-l border-border/60 bg-[#f5f5f2] flex flex-col h-[calc(100vh-53px)] overflow-y-auto refined-scroll p-4 space-y-4">
-      <div className="rounded-xl bg-white border border-border/60 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-border/40 bg-gradient-to-r from-[#1a6b5a]/5 to-transparent">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#1a6b5a]">
-            Your Profile
-          </h3>
-        </div>
+    <aside className="w-[320px] shrink-0 border-l border-rule bg-paper-warm flex flex-col h-[calc(100vh-57px)] overflow-y-auto refined-scroll">
+      <Section eyebrow="The student" title="Your profile">
         <ProfilePanel profile={profile} onUpdate={onProfileChange} />
-      </div>
-      <div className="rounded-xl bg-white border border-border/60 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-border/40">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Your Journey
-          </h3>
-        </div>
+      </Section>
+
+      <Section eyebrow="Where you are" title="Your journey">
         <JourneyPhase phases={PHASES} currentPhase={currentPhase} />
-      </div>
+      </Section>
+
       {(signals || (citations && citations.length > 0)) && (
-        <HowWeGotHere signals={signals} citations={citations} />
+        <Section eyebrow="Behind the answer" title="How we got here" noBorder>
+          <HowWeGotHere signals={signals} citations={citations} />
+        </Section>
       )}
+
+      <div className="px-5 py-6 border-t border-rule text-[11.5px] text-ink-soft">
+        <p className="font-display italic leading-relaxed">
+          &ldquo;Plans are nothing; planning is everything.&rdquo;
+        </p>
+        <p className="eyebrow mt-2 text-right">— Eisenhower</p>
+      </div>
     </aside>
+  )
+}
+
+function Section({
+  eyebrow,
+  title,
+  noBorder,
+  children,
+}: {
+  eyebrow: string
+  title: string
+  noBorder?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <section className={noBorder ? '' : 'border-b border-rule'}>
+      <header className="px-5 pt-5 pb-2.5">
+        <div className="eyebrow-accent">{eyebrow}</div>
+        <h3 className="font-display text-[18px] text-ink mt-0.5 leading-tight">{title}</h3>
+      </header>
+      <div className="px-5 pb-5">{children}</div>
+    </section>
   )
 }

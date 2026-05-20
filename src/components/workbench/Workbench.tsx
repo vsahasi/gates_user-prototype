@@ -241,8 +241,19 @@ export function Workbench({
     router.push(`/student/${student.id}/${id}`)
   }
 
+  const phaseLabel = currentPhase[0].toUpperCase() + currentPhase.slice(1)
+  const hasMessages = messages.length > 0
+  const onlyOpener = messages.length <= 1 && (messages[0]?.role === 'assistant' || !hasMessages)
+
+  const suggestions = [
+    'What does my next year look like, step by step?',
+    'Help me compare three schools I&apos;ve been thinking about.',
+    'Walk me through FAFSA in plain language.',
+    'What careers fit what I&apos;m already good at?',
+  ]
+
   return (
-    <div className="flex flex-row h-[calc(100vh-53px)]">
+    <div className="flex flex-row h-[calc(100vh-57px)]">
       <LeftRail
         student={student}
         conversations={conversations}
@@ -253,9 +264,29 @@ export function Workbench({
           window.location.href = `/api/student/${student.id}/export`
         }}
       />
-      <main className="flex-1 flex flex-col overflow-hidden bg-[#fafaf8]">
-        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 refined-scroll">
-          <div className="mx-auto w-full max-w-3xl space-y-1">
+      <main className="flex-1 flex flex-col overflow-hidden bg-paper relative">
+        {/* Conversation header */}
+        <div className="border-b border-rule px-8 py-4 bg-paper/60 backdrop-blur-sm">
+          <div className="mx-auto max-w-3xl flex items-baseline justify-between gap-4">
+            <div>
+              <div className="eyebrow-accent">Chapter · {phaseLabel}</div>
+              <h2 className="font-display text-[26px] leading-tight text-ink mt-0.5">
+                {conversation.title}
+              </h2>
+            </div>
+            <div className="hidden sm:flex items-baseline gap-2 text-ink-soft">
+              <span className="font-mono text-[11px] uppercase tracking-wider">entries</span>
+              <span className="serif-numeral text-[20px] text-forest">
+                {messages.filter((m) => m.role === 'user').length
+                  .toString()
+                  .padStart(2, '0')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-8 refined-scroll">
+          <div className="mx-auto w-full max-w-3xl">
             {messages.map((m, i) => (
               <MessageBubble
                 key={i}
@@ -272,9 +303,29 @@ export function Workbench({
             {isLoading &&
               messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
             <div ref={bottomRef} />
+
+            {onlyOpener && (
+              <div className="mt-10">
+                <div className="rule-fancy mb-4"><span className="ornament">·  ·  ·</span></div>
+                <div className="caps-sm mb-3 text-center">Or begin here</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 stagger">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => sendMessage(s.replace(/&apos;/g, "'"))}
+                      className="almanac-card text-left px-4 py-3 text-[14px] text-ink-mid hover:text-ink hover:border-forest hover:bg-forest-soft transition-all group"
+                    >
+                      <span className="font-display italic text-forest mr-2">›</span>
+                      {s.replace(/&apos;/g, '’')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-        <div className="px-4 pb-4 sm:px-6">
+
+        <div className="px-6 sm:px-8 pb-5 pt-2 bg-paper border-t border-rule">
           <ChatInput onSend={sendMessage} disabled={isLoading} />
         </div>
       </main>

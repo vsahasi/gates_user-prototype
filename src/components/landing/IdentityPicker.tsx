@@ -38,9 +38,7 @@ export function IdentityPicker({ role }: { role: 'student' | 'adult' }) {
     if (!displayName.trim()) return
     setBusy(true)
     const body =
-      role === 'student'
-        ? { role, displayName }
-        : { role, displayName, kind }
+      role === 'student' ? { role, displayName } : { role, displayName, kind }
     const res = await fetch('/api/identity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,55 +48,85 @@ export function IdentityPicker({ role }: { role: 'student' | 'adult' }) {
     router.push(newRole === 'student' ? `/student/${id}` : `/adult/${id}`)
   }
 
+  const roleWord = role === 'student' ? 'student' : 'caring adult'
+
   return (
-    <div className="max-w-md mx-auto mt-8 space-y-4">
+    <div className="space-y-6">
+      <div>
+        <div className="eyebrow-accent">Step II · Identify</div>
+        <h2 className="font-display text-[34px] leading-tight text-ink mt-2">
+          Welcome, <span className="italic font-light text-forest">{roleWord}</span>.
+        </h2>
+      </div>
+
       {role === 'student' && existing.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">
-            Continue as
+          <div className="caps-sm">Continue as</div>
+          <div className="space-y-1.5">
+            {existing.map((s) => (
+              <button
+                key={s.id}
+                disabled={busy}
+                onClick={() => pickExisting(s.id)}
+                className="w-full text-left almanac-panel px-4 py-3 hover:border-forest hover:bg-forest-soft transition-colors group"
+              >
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <div className="font-display text-[18px] text-ink">{s.displayName}</div>
+                    {s.personaId && (
+                      <div className="text-[11px] text-ink-soft mt-0.5 font-mono">
+                        {s.personaId}
+                      </div>
+                    )}
+                  </div>
+                  <span
+                    aria-hidden
+                    className="text-ink-faint group-hover:text-forest font-display"
+                  >
+                    →
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
-          {existing.map((s) => (
-            <button
-              key={s.id}
-              disabled={busy}
-              onClick={() => pickExisting(s.id)}
-              className="w-full text-left p-3 rounded-lg border border-border/60 bg-white hover:bg-[#1a6b5a]/5"
-            >
-              <div className="font-medium">{s.displayName}</div>
-              {s.personaId && (
-                <div className="text-xs text-muted-foreground">{s.personaId}</div>
-              )}
-            </button>
-          ))}
-          <div className="text-xs uppercase tracking-wider text-muted-foreground pt-4">
-            Or start fresh
-          </div>
+          <div className="rule-fancy mt-6"><span className="ornament">·  ·  ·</span></div>
+          <div className="caps-sm pt-2">Or start fresh</div>
         </div>
       )}
-      <input
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-        placeholder="Your first name"
-        className="w-full px-3 py-2 rounded-lg border border-border/60"
-      />
-      {role === 'adult' && (
-        <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as typeof kind)}
-          className="w-full px-3 py-2 rounded-lg border border-border/60"
+
+      <div className="space-y-4">
+        <div>
+          <label className="eyebrow block mb-1.5">Your first name</label>
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="e.g. Maya"
+            className="field-line w-full"
+          />
+        </div>
+        {role === 'adult' && (
+          <div>
+            <label className="eyebrow block mb-1.5">Your relationship</label>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as typeof kind)}
+              className="field-box w-full"
+            >
+              <option value="parent">Parent or guardian</option>
+              <option value="counselor">School counselor</option>
+              <option value="other">Other caring adult</option>
+            </select>
+          </div>
+        )}
+        <button
+          disabled={busy || !displayName.trim()}
+          onClick={createNew}
+          className="btn-ink w-full justify-center"
         >
-          <option value="parent">Parent / guardian</option>
-          <option value="counselor">Counselor</option>
-          <option value="other">Other caring adult</option>
-        </select>
-      )}
-      <button
-        disabled={busy || !displayName.trim()}
-        onClick={createNew}
-        className="w-full px-4 py-2 rounded-lg bg-[#1a6b5a] text-white disabled:opacity-50"
-      >
-        Continue
-      </button>
+          Continue
+          <span className="font-display italic text-[15px] opacity-80">→</span>
+        </button>
+      </div>
     </div>
   )
 }
