@@ -7,6 +7,10 @@ import { ChatInput } from '@/components/chat/ChatInput'
 import { ComparisonTable } from '@/components/panels/ComparisonTable'
 import { PathwayCards } from '@/components/panels/PathwayCards'
 import { TimelineChecklist } from '@/components/panels/TimelineChecklist'
+import { DecisionMatrix } from '@/components/workbench/DecisionMatrix'
+import { FinancialAidView } from '@/components/workbench/FinancialAidView'
+import { FAFSADraft } from '@/components/workbench/FAFSADraft'
+import { EssayDraft } from '@/components/workbench/EssayDraft'
 import { LeftRail } from '@/components/layout/LeftRail'
 import { RightRail } from '@/components/layout/RightRail'
 import { SCHOOLS } from '@/lib/data/schools'
@@ -21,6 +25,10 @@ import type {
   ComparisonTableData,
   PathwayCardsData,
   TimelineChecklistData,
+  DecisionMatrixData,
+  FinancialAidViewData,
+  FAFSADraftData,
+  EssayDraftData,
 } from '@/lib/types'
 import type { Student, Conversation, DbMessage } from '@/lib/db/queries'
 
@@ -54,6 +62,18 @@ function renderStructuredComponent(component?: StructuredComponent) {
   }
   if (component.type === 'timeline_checklist') {
     return <TimelineChecklist data={component.data as TimelineChecklistData} />
+  }
+  if (component.type === 'decision_matrix') {
+    return <DecisionMatrix data={component.data as DecisionMatrixData} />
+  }
+  if (component.type === 'financial_aid_view') {
+    return <FinancialAidView data={component.data as FinancialAidViewData} />
+  }
+  if (component.type === 'fafsa_draft') {
+    return <FAFSADraft data={component.data as FAFSADraftData} />
+  }
+  if (component.type === 'essay_draft') {
+    return <EssayDraft data={component.data as EssayDraftData} />
   }
   return null
 }

@@ -80,8 +80,51 @@ export interface Message {
 }
 
 export interface StructuredComponent {
-  type: 'comparison_table' | 'pathway_cards' | 'timeline_checklist'
-  data: ComparisonTableData | PathwayCardsData | TimelineChecklistData
+  type:
+    | 'comparison_table'
+    | 'pathway_cards'
+    | 'timeline_checklist'
+    | 'decision_matrix'
+    | 'financial_aid_view'
+    | 'fafsa_draft'
+    | 'essay_draft'
+  data:
+    | ComparisonTableData
+    | PathwayCardsData
+    | TimelineChecklistData
+    | DecisionMatrixData
+    | FinancialAidViewData
+    | FAFSADraftData
+    | EssayDraftData
+}
+
+export interface DecisionMatrixData {
+  options: Array<{
+    id: string
+    label: string
+    scores: Record<string, number>
+  }>
+  criteria: Array<{ id: string; label: string; weight: number }>
+}
+
+export interface FinancialAidViewData {
+  schools: string[]
+  familyIncome: number
+  expectedFamilyContribution?: number
+}
+
+export interface FAFSADraftData {
+  sections: Array<{
+    id: string
+    title: string
+    fields: Array<{ id: string; label: string; value: string; help?: string }>
+  }>
+}
+
+export interface EssayDraftData {
+  prompt: string
+  draft: string
+  variants?: string[]
 }
 
 export interface ComparisonTableData {
