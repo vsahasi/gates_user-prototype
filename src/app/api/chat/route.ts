@@ -266,7 +266,12 @@ export async function POST(request: NextRequest) {
 
         controller.close()
       } catch (err) {
-        const errorMsg = '\n\n[An error occurred. Please try again.]'
+        const status = (err as { status?: number })?.status
+        const overloaded = status === 529 || status === 503
+        console.error(`[chat] stream failed (status=${status ?? 'unknown'})`, err)
+        const errorMsg = overloaded
+          ? "\n\nThe advisor is briefly overloaded right now — that's on us, not you. Give it a minute and send the message again."
+          : '\n\nSomething went wrong on our end. Please try again in a moment.'
         controller.enqueue(encoder.encode(errorMsg))
         controller.close()
       }

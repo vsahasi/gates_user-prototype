@@ -27,37 +27,48 @@ Respond with ONLY valid JSON matching this schema:
   "rewrittenQuery": "<clear, standalone version of the query using session context>"
 }`
 
+function defaultClassification(message: string): IntentClassification {
+  return {
+    intent: 'general_question',
+    extractedParams: {},
+    rewrittenQuery: message,
+  }
+}
+
 export async function classifyIntent(
   message: string,
   session: SessionState
 ): Promise<IntentClassification> {
   const contextSummary = buildContextSummary(session)
 
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
-    system: INTENT_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: `Session context:\n${contextSummary}\n\nStudent message: "${message}"`,
-      },
-    ],
-  })
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '{}'
+  let text = '{}'
+  try {
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: INTENT_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `Session context:\n${contextSummary}\n\nStudent message: "${message}"`,
+        },
+      ],
+    })
+    text = response.content[0].type === 'text' ? response.content[0].text : '{}'
+  } catch (err) {
+    // Anthropic 529 (overloaded), network errors, etc. — degrade gracefully
+    // rather than failing the whole chat turn. RAG/Scorecard/O*NET gates will
+    // skip but the conversation continues.
+    const status = (err as { status?: number })?.status
+    console.warn(`[intent] LLM call failed (status=${status ?? 'unknown'}); falling back to general_question`)
+    return defaultClassification(message)
+  }
 
   try {
     return JSON.parse(extractJson(text)) as IntentClassification
   } catch (err) {
-    // Log rather than silently defaulting — misclassifying everything as
-    // general_question disables RAG/Scorecard/O*NET gates entirely.
     console.warn('[intent] JSON parse failed, defaulting to general_question. Raw Haiku output:', text.slice(0, 500), err)
-    return {
-      intent: 'general_question',
-      extractedParams: {},
-      rewrittenQuery: message,
-    }
+    return defaultClassification(message)
   }
 }
 
