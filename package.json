@@ -13,6 +13,7 @@
     "ingest:cds": "tsx --env-file=.env.local scripts/ingest-cds.ts",
     "download:ipeds": "tsx scripts/download-ipeds.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
+    "eval:run": "tsx --env-file=.env.local scripts/eval-run.ts",
     "verify:pinecone": "tsx --env-file=.env.local scripts/verify-pinecone.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

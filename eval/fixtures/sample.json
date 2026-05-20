@@ -1,0 +1,22 @@
+[
+  {
+    "id": "ccsf-tuition",
+    "studentMessage": "How much is in-state tuition at City College of San Francisco?",
+    "expectedFact": {
+      "kind": "in_state_tuition",
+      "unitId": "113364",
+      "value": 1288,
+      "tolerance": 300
+    }
+  },
+  {
+    "id": "elac-gradrate",
+    "studentMessage": "What's the graduation rate at East Los Angeles College?",
+    "expectedFact": {
+      "kind": "grad_rate",
+      "unitId": "110592",
+      "value": 0.16,
+      "tolerance": 0.05
+    }
+  }
+]
