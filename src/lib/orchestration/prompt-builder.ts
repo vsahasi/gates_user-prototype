@@ -66,6 +66,23 @@ STRUCTURED COMPONENT RULES:
 
 Only include a component when it genuinely improves comprehension. One component per response maximum.`
 
+/** Returns a directive block telling Claude what today's date is. The prompt
+ *  builder caller is expected to prepend this to SYSTEM_PROMPT — Claude does
+ *  not have access to wall-clock time on its own. */
+export function currentDateDirective(now: Date = new Date()): string {
+  const iso = now.toISOString().slice(0, 10)
+  const fmt = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  const academicYear = now.getMonth() >= 6 // July or later → new academic year
+    ? `${now.getFullYear()}–${now.getFullYear() + 1}`
+    : `${now.getFullYear() - 1}–${now.getFullYear()}`
+  return `TODAY'S DATE: ${fmt} (${iso}). The current academic year is ${academicYear}.
+When you reference deadlines (FAFSA, Cal Grant, Common App, application due dates), use the *next* occurrence relative to today's date — never a past date. If you don't know whether a deadline is still upcoming, say so rather than guess.`
+}
+
+export function systemPromptForNow(now: Date = new Date()): string {
+  return `${currentDateDirective(now)}\n\n${SYSTEM_PROMPT}`
+}
+
 export interface PromptContext {
   session: SessionState
   classification: IntentClassification

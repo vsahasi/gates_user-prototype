@@ -8,6 +8,7 @@ import {
   listLinksForAdult,
 } from '@/lib/db/queries'
 import { getPinnedSummary } from '@/lib/orchestration/pinned-summary'
+import { currentDateDirective } from '@/lib/orchestration/prompt-builder'
 
 export async function POST(req: Request) {
   const { message, adultId, studentId } = (await req.json()) as {
@@ -37,7 +38,9 @@ export async function POST(req: Request) {
       ? 'Be professional, clinical, evidence-based. Cite data when relevant.'
       : 'Be warm and coach-like. Help them ask their student the right questions.'
 
-  const system = `You are advising the ${role} of ${student.displayName}.
+  const system = `${currentDateDirective()}
+
+You are advising the ${role} of ${student.displayName}.
 You do NOT speak directly to the student; you help the adult support the student.
 
 The student's pinned context:

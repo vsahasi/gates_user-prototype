@@ -19,7 +19,7 @@ import {
 
 import { checkInputGuardrails, checkOutputGuardrails, formatDataVintageDisclosure } from '@/lib/orchestration/guardrails'
 import { classifyIntent } from '@/lib/orchestration/intent'
-import { buildUserMessage, SYSTEM_PROMPT } from '@/lib/orchestration/prompt-builder'
+import { buildUserMessage, systemPromptForNow } from '@/lib/orchestration/prompt-builder'
 import { ragService } from '@/lib/services/rag'
 import { createScorecardService } from '@/lib/services/scorecard'
 import { createONETService } from '@/lib/services/onet'
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
         const claudeStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
           max_tokens: 2500,
-          system: SYSTEM_PROMPT,
+          system: systemPromptForNow(),
           messages: [{ role: 'user', content: userMessage + workbenchSnippet }],
         })
 
