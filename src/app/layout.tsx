@@ -26,9 +26,9 @@ const jetbrains = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'PathwayAI — A college & career almanac',
+  title: 'Pathway — College & career advising',
   description:
-    'A study companion for students navigating college, career, and the road from here to there.',
+    'A study companion for students navigating college, career, and what comes next.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

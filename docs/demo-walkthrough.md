@@ -37,7 +37,7 @@ The seed script prints the demo identifiers — note the **Student A id** and th
 ### 5. Drafts (1 min)
 - Back in Maria's workspace, ask: *"Can you start a FAFSA draft for me?"*
 - A `fafsa_draft` component renders. Edit a field → click **Export** → markdown file downloads.
-- The amber disclosure ("PathwayAI does not submit anything on your behalf") is visible at the top and bottom.
+- The amber disclosure ("Pathway does not submit anything on your behalf") is visible at the top and bottom.
 
 ### 6. Memory portability (1 min)
 - Click **Export my memory** in the left rail → JSON downloads.

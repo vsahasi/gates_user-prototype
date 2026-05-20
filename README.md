@@ -1,4 +1,4 @@
-# PathwayAI — College & Career Advising Prototype
+# Pathway — College & Career Advising Prototype
 
 A dual-workspace prototype for college and career advising, built for the Bill & Melinda Gates Foundation. Students chat with an advisor, edit their profile inline, see structured comparisons / decision matrices / financial-aid views, and share context with parents or counselors who get their own assistant scoped to that student.
 
