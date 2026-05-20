@@ -19,6 +19,7 @@ export function closeDb(): void {
     _db.close()
     _db = null
   }
+  _migrated = false
 }
 
 let _migrated = false
