@@ -6,6 +6,9 @@ import { getOrCreateSession, updateStudentProfile, setStudentProfile } from '@/l
 import { runMigrations } from '@/lib/db'
 import { appendMessage, getConversation, createConversation } from '@/lib/db/queries'
 import { classifyTone } from '@/lib/adaptive/tone'
+import { extractCitations, stripCitations } from '@/lib/orchestration/citation-extractor'
+import { scoreAgainstRubric } from '@/lib/orchestration/rubric'
+import { getDb } from '@/lib/db'
 import {
   computeReadiness,
   computeCognitiveLoad,
@@ -219,13 +222,39 @@ export async function POST(request: NextRequest) {
         const retrievedDataStr = JSON.stringify({ rag, scorecard, onet })
         const outputCheck = checkOutputGuardrails(fullResponse, retrievedDataStr)
 
-        // Persist assistant turn with signals
-        appendMessage({
+        // Citations: extract [cite: …] markers, keep them in the stored text for
+        // round-trip but they were not stripped from the live stream — clients
+        // tolerate the markers and render them via CitationFootnotes.
+        const citations = extractCitations(outputCheck.response)
+        const visibleText = stripCitations(outputCheck.response)
+
+        // Persist assistant turn with signals + citations
+        const assistantRow = appendMessage({
           conversationId: conv.id,
           role: 'assistant',
-          content: outputCheck.response,
+          content: visibleText,
           signals,
+          citations: citations.length > 0 ? citations : undefined,
         })
+
+        // Async rubric scoring — does not block the response.
+        if (visibleText.length > 80) {
+          ;(async () => {
+            try {
+              const score = await scoreAgainstRubric({
+                userMessage: message,
+                assistantResponse: visibleText,
+              })
+              if (score) {
+                getDb()
+                  .prepare(`UPDATE messages SET rubricScoreJson = ? WHERE id = ?`)
+                  .run(JSON.stringify(score), assistantRow.id)
+              }
+            } catch {
+              // Rubric scoring is best-effort.
+            }
+          })()
+        }
 
         controller.close()
       } catch (err) {

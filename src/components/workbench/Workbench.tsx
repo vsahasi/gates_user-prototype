@@ -38,6 +38,9 @@ type Phase = 'exploration' | 'preparation' | 'decision' | 'application' | 'trans
 interface DisplayMessage extends Message {
   structuredComponent?: StructuredComponent
   isStreaming?: boolean
+  citations?: Array<{ index: number; source: string }>
+  rubricOverall?: number | null
+  signals?: import('@/lib/adaptive/signals').Signals
 }
 
 function inferPhase(messages: DisplayMessage[]): Phase {
@@ -104,6 +107,11 @@ export function Workbench({
       structuredComponent: m.structuredComponentJson
         ? (JSON.parse(m.structuredComponentJson) as StructuredComponent)
         : undefined,
+      citations: m.citationsJson ? JSON.parse(m.citationsJson) : undefined,
+      rubricOverall: m.rubricScoreJson
+        ? (JSON.parse(m.rubricScoreJson) as { overall?: number }).overall ?? null
+        : null,
+      signals: m.signalsJson ? JSON.parse(m.signalsJson) : undefined,
     })),
   )
   const [isLoading, setIsLoading] = useState(false)
@@ -218,6 +226,8 @@ export function Workbench({
                 key={i}
                 message={m}
                 structuredComponent={renderStructuredComponent(m.structuredComponent)}
+                citations={m.citations}
+                rubricOverall={m.rubricOverall}
               />
             ))}
             {isLoading &&
@@ -229,7 +239,18 @@ export function Workbench({
           <ChatInput onSend={sendMessage} disabled={isLoading} />
         </div>
       </main>
-      <RightRail profile={profile} onProfileChange={setProfile} currentPhase={currentPhase} />
+      <RightRail
+        profile={profile}
+        onProfileChange={setProfile}
+        currentPhase={currentPhase}
+        signals={
+          [...messages].reverse().find((m) => m.role === 'assistant' && m.signals)?.signals
+        }
+        citations={[...messages]
+          .reverse()
+          .find((m) => m.role === 'assistant' && m.citations)
+          ?.citations?.map((c) => ({ source: c.source }))}
+      />
       {shareOpen && <ShareModal studentId={student.id} onClose={() => setShareOpen(false)} />}
     </div>
   )

@@ -2,7 +2,9 @@
 'use client'
 import { ProfilePanel } from '@/components/panels/ProfilePanel'
 import { JourneyPhase } from '@/components/panels/JourneyPhase'
+import { HowWeGotHere } from '@/components/trust/HowWeGotHere'
 import type { StudentProfile } from '@/lib/types'
+import type { Signals } from '@/lib/adaptive/signals'
 
 type Phase = 'exploration' | 'preparation' | 'decision' | 'application' | 'transition'
 
@@ -18,9 +20,11 @@ interface Props {
   profile: StudentProfile
   onProfileChange: (p: StudentProfile) => void
   currentPhase: Phase
+  signals?: Signals
+  citations?: Array<{ source: string }>
 }
 
-export function RightRail({ profile, onProfileChange, currentPhase }: Props) {
+export function RightRail({ profile, onProfileChange, currentPhase, signals, citations }: Props) {
   return (
     <aside className="w-[300px] shrink-0 border-l border-border/60 bg-[#f5f5f2] flex flex-col h-[calc(100vh-53px)] overflow-y-auto refined-scroll p-4 space-y-4">
       <div className="rounded-xl bg-white border border-border/60 shadow-sm overflow-hidden">
@@ -39,6 +43,9 @@ export function RightRail({ profile, onProfileChange, currentPhase }: Props) {
         </div>
         <JourneyPhase phases={PHASES} currentPhase={currentPhase} />
       </div>
+      {(signals || (citations && citations.length > 0)) && (
+        <HowWeGotHere signals={signals} citations={citations} />
+      )}
     </aside>
   )
 }

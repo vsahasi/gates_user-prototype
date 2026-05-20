@@ -3,10 +3,14 @@
 import type { Message } from '@/lib/types'
 import { Compass, User } from 'lucide-react'
 import { AssistantMarkdown } from '@/components/chat/AssistantMarkdown'
+import { CitationFootnotes } from '@/components/trust/CitationChip'
+import { AdvisorBadge } from '@/components/trust/AdvisorBadge'
 
 interface MessageBubbleProps {
   message: Message
   structuredComponent?: React.ReactNode
+  citations?: Array<{ index: number; source: string }>
+  rubricOverall?: number | null
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -19,7 +23,12 @@ function formatRelativeTime(timestamp: number): string {
   return `${hours}h ago`
 }
 
-export function MessageBubble({ message, structuredComponent }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  structuredComponent,
+  citations,
+  rubricOverall,
+}: MessageBubbleProps) {
   const isUser = message.role === 'user'
 
   return (
@@ -48,9 +57,15 @@ export function MessageBubble({ message, structuredComponent }: MessageBubblePro
             {structuredComponent}
           </div>
         )}
-        <span className="text-[11px] text-muted-foreground/60 px-1 select-none">
-          {formatRelativeTime(message.timestamp)}
-        </span>
+        {!isUser && citations && citations.length > 0 && (
+          <CitationFootnotes citations={citations} />
+        )}
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-[11px] text-muted-foreground/60 select-none">
+            {formatRelativeTime(message.timestamp)}
+          </span>
+          {!isUser && rubricOverall != null && <AdvisorBadge score={rubricOverall} />}
+        </div>
       </div>
       {isUser && (
         <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#1a6b5a]/10 text-[#1a6b5a]">
