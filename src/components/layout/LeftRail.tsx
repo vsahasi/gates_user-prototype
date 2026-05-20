@@ -1,6 +1,7 @@
 // src/components/layout/LeftRail.tsx
 'use client'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import type { Conversation, Student } from '@/lib/db/queries'
 
 interface Props {
@@ -28,6 +29,9 @@ export function LeftRail({
   onShare,
   onExport,
 }: Props) {
+  const pathname = usePathname()
+  const isPlanPage = pathname === `/student/${student.id}/plan`
+
   return (
     <aside className="w-[268px] shrink-0 border-r border-rule bg-paper-warm flex flex-col h-[calc(100vh-57px)]">
       {/* Identity card */}
@@ -43,10 +47,33 @@ export function LeftRail({
         )}
       </div>
 
+      {/* My Plan link */}
+      <div className="px-4 pt-4 pb-1">
+        <Link
+          href={`/student/${student.id}/plan`}
+          className={`almanac-card block px-3.5 py-3 transition-colors ${
+            isPlanPage
+              ? 'bg-card border-forest'
+              : 'hover:border-forest/40 hover:bg-card'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-forest font-display text-[16px] leading-none">◆</span>
+              <span className="font-sans text-[13.5px] font-medium text-ink pen-underline">
+                My plan
+              </span>
+            </div>
+            <span className="text-ink-faint text-[13px]">→</span>
+          </div>
+          <div className="eyebrow mt-1 ml-6 text-forest/70">A snapshot of where you are</div>
+        </Link>
+      </div>
+
       {/* New conversation */}
       <button
         onClick={onNew}
-        className="mx-4 mt-4 mb-2 btn-ghost justify-start border border-rule bg-card hover:bg-paper hover:border-forest/40"
+        className="mx-4 mt-3 mb-2 btn-ghost justify-start border border-rule bg-card hover:bg-paper hover:border-forest/40"
       >
         <span className="font-display italic text-[15px] text-forest">+</span>
         <span>New conversation</span>
