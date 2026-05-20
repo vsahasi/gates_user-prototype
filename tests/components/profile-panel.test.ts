@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { unlinkSync, existsSync } from 'node:fs'
-import { mergeProfile } from '@/components/chat/ChatInterface'
+import { mergeProfile } from '@/lib/profile'
 import { getOrCreateSession, setStudentProfile, getSession } from '@/lib/orchestration/session'
 import { closeDb, runMigrations } from '@/lib/db'
 import { createStudent, createConversation } from '@/lib/db/queries'
