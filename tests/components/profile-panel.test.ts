@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { unlinkSync, existsSync } from 'node:fs'
 import { mergeProfile } from '@/components/chat/ChatInterface'
 import { getOrCreateSession, setStudentProfile, getSession } from '@/lib/orchestration/session'
+import { closeDb, runMigrations } from '@/lib/db'
+import { createStudent, createConversation } from '@/lib/db/queries'
 import { isDirty } from '@/components/panels/ProfilePanel'
+
+const TEST_DB = './data/test-profile-panel.db'
 
 describe('mergeProfile', () => {
   it('returns defaults when initial is empty', () => {
@@ -32,12 +37,24 @@ describe('mergeProfile', () => {
   })
 })
 
-describe('setStudentProfile', () => {
+describe('setStudentProfile (DB-backed)', () => {
+  beforeEach(() => {
+    closeDb()
+    if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
+    process.env.SQLITE_PATH = TEST_DB
+    runMigrations()
+  })
+  afterEach(() => {
+    closeDb()
+    if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
+  })
+
   it('replaces the session profile entirely', () => {
-    const sessionId = 'test-session-replace'
-    getOrCreateSession(sessionId)
-    setStudentProfile(sessionId, { grade: 11, state: 'TX', interests: ['nursing'] })
-    const session = getSession(sessionId)!
+    const s = createStudent({ displayName: 'Alex' })
+    const c = createConversation(s.id, 'First')
+    getOrCreateSession(c.id, undefined, s.id)
+    setStudentProfile(c.id, { grade: 11, state: 'TX', interests: ['nursing'] })
+    const session = getSession(c.id)!
     expect(session.studentProfile.grade).toBe(11)
     expect(session.studentProfile.state).toBe('TX')
     expect(session.studentProfile.interests).toEqual(['nursing'])
@@ -45,11 +62,12 @@ describe('setStudentProfile', () => {
   })
 
   it('replaces interests (does not merge with existing)', () => {
-    const sessionId = 'test-session-replace-interests'
-    getOrCreateSession(sessionId)
-    setStudentProfile(sessionId, { interests: ['business', 'tech'] })
-    setStudentProfile(sessionId, { interests: ['nursing'] })
-    const session = getSession(sessionId)!
+    const s = createStudent({ displayName: 'Alex' })
+    const c = createConversation(s.id, 'First')
+    getOrCreateSession(c.id, undefined, s.id)
+    setStudentProfile(c.id, { interests: ['business', 'tech'] })
+    setStudentProfile(c.id, { interests: ['nursing'] })
+    const session = getSession(c.id)!
     expect(session.studentProfile.interests).toEqual(['nursing'])
   })
 

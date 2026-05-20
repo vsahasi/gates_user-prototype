@@ -1,87 +1,83 @@
 // src/lib/orchestration/session.ts
-import type { SessionState, StudentProfile } from '@/lib/types'
+import type { Message, SessionState, StudentProfile } from '@/lib/types'
 import { DEFAULT_PROFILE } from '@/lib/defaults'
+import {
+  getConversation,
+  getStudentProfile,
+  upsertStudentProfile,
+  listMessages,
+  createConversation,
+} from '@/lib/db/queries'
 
-// Module-level store — persists across requests in a single Node.js process
-const sessions = new Map<string, SessionState>()
-
-export function getOrCreateSession(sessionId: string, personaId?: string): SessionState {
-  if (sessions.has(sessionId)) {
-    const session = sessions.get(sessionId)!
-    session.lastActiveAt = Date.now()
-    return session
+export function getOrCreateSession(
+  sessionId: string,
+  personaId?: string,
+  studentId?: string,
+): SessionState {
+  let conv = getConversation(sessionId)
+  if (!conv) {
+    if (!studentId) {
+      throw new Error('Cannot create session without studentId')
+    }
+    conv = createConversation(studentId, 'New conversation')
   }
-
-  const session: SessionState = {
-    sessionId,
+  const profile = getStudentProfile(conv.studentId) ?? { ...DEFAULT_PROFILE }
+  const messages = listMessages(conv.id)
+  const conversationHistory: Message[] = messages.map((m) => ({
+    role: m.role === 'system' ? 'assistant' : (m.role as 'user' | 'assistant'),
+    content: m.content,
+    timestamp: m.timestamp,
+  }))
+  return {
+    sessionId: conv.id,
     personaId: personaId ?? null,
-    studentProfile: { ...DEFAULT_PROFILE },
-    conversationHistory: [],
+    studentProfile: profile,
+    conversationHistory,
     priorRecommendations: [],
-    createdAt: Date.now(),
-    lastActiveAt: Date.now(),
+    createdAt: conv.createdAt,
+    lastActiveAt: conv.lastMessageAt,
   }
-
-  sessions.set(sessionId, session)
-  return session
 }
 
-export function updateSession(sessionId: string, updates: Partial<SessionState>): void {
-  const session = sessions.get(sessionId)
-  if (!session) return
-  Object.assign(session, updates, { lastActiveAt: Date.now() })
+export function setStudentProfile(sessionId: string, profile: Partial<StudentProfile>): void {
+  const conv = getConversation(sessionId)
+  if (!conv) return
+  const current = getStudentProfile(conv.studentId) ?? { ...DEFAULT_PROFILE }
+  const next: StudentProfile = {
+    ...current,
+    ...profile,
+    financialInfo: { ...current.financialInfo, ...(profile.financialInfo ?? {}) },
+  }
+  upsertStudentProfile(conv.studentId, next)
 }
 
 export function updateStudentProfile(
   sessionId: string,
-  profileUpdates: Partial<StudentProfile>
+  updates: Partial<StudentProfile>,
 ): void {
-  const session = sessions.get(sessionId)
-  if (!session) return
-  session.studentProfile = {
-    ...session.studentProfile,
-    ...profileUpdates,
-    interests: [
-      ...new Set([...(session.studentProfile.interests ?? []), ...(profileUpdates.interests ?? [])]),
-    ],
-    constraints: [
-      ...new Set([...(session.studentProfile.constraints ?? []), ...(profileUpdates.constraints ?? [])]),
-    ],
-    specialCircumstances: [
-      ...new Set([
-        ...(session.studentProfile.specialCircumstances ?? []),
-        ...(profileUpdates.specialCircumstances ?? []),
-      ]),
-    ],
-    goals: [
-      ...new Set([...(session.studentProfile.goals ?? []), ...(profileUpdates.goals ?? [])]),
-    ],
+  const conv = getConversation(sessionId)
+  if (!conv) return
+  const current = getStudentProfile(conv.studentId) ?? { ...DEFAULT_PROFILE }
+  const merged: StudentProfile = {
+    ...current,
+    ...updates,
+    interests: Array.from(new Set([...(current.interests ?? []), ...(updates.interests ?? [])])),
+    constraints: Array.from(new Set([...(current.constraints ?? []), ...(updates.constraints ?? [])])),
+    specialCircumstances: Array.from(new Set([
+      ...(current.specialCircumstances ?? []),
+      ...(updates.specialCircumstances ?? []),
+    ])),
+    goals: Array.from(new Set([...(current.goals ?? []), ...(updates.goals ?? [])])),
+    financialInfo: { ...current.financialInfo, ...(updates.financialInfo ?? {}) },
   }
-  session.lastActiveAt = Date.now()
-}
-
-export function setStudentProfile(
-  sessionId: string,
-  profile: Partial<StudentProfile>
-): void {
-  const session = sessions.get(sessionId)
-  if (!session) return
-  session.studentProfile = {
-    ...DEFAULT_PROFILE,
-    ...profile,
-    financialInfo: { ...DEFAULT_PROFILE.financialInfo, ...(profile.financialInfo ?? {}) },
-  }
-  session.lastActiveAt = Date.now()
+  upsertStudentProfile(conv.studentId, merged)
 }
 
 export function getSession(sessionId: string): SessionState | undefined {
-  return sessions.get(sessionId)
+  const conv = getConversation(sessionId)
+  if (!conv) return undefined
+  return getOrCreateSession(sessionId)
 }
 
-// Prune sessions older than 2 hours
-export function pruneOldSessions(): void {
-  const cutoff = Date.now() - 2 * 60 * 60 * 1000
-  for (const [id, session] of sessions) {
-    if (session.lastActiveAt < cutoff) sessions.delete(id)
-  }
-}
+// Process-lifetime pruning is no longer relevant — DB persists.
+export function pruneOldSessions(): void {}
