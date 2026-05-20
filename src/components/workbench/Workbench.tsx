@@ -13,6 +13,7 @@ import { FAFSADraft } from '@/components/workbench/FAFSADraft'
 import { EssayDraft } from '@/components/workbench/EssayDraft'
 import { LeftRail } from '@/components/layout/LeftRail'
 import { RightRail } from '@/components/layout/RightRail'
+import { ShareModal } from '@/components/share/ShareModal'
 import { SCHOOLS } from '@/lib/data/schools'
 import {
   parseStructuredComponentMessage,
@@ -106,6 +107,7 @@ export function Workbench({
     })),
   )
   const [isLoading, setIsLoading] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const currentPhase = inferPhase(messages)
 
@@ -203,8 +205,10 @@ export function Workbench({
         conversations={conversations}
         activeConvId={conversation.id}
         onNew={newConversation}
-        onShare={() => alert('Share modal coming in Phase 6')}
-        onExport={() => alert('Export coming in Phase 8')}
+        onShare={() => setShareOpen(true)}
+        onExport={() => {
+          window.location.href = `/api/student/${student.id}/export`
+        }}
       />
       <main className="flex-1 flex flex-col overflow-hidden bg-[#fafaf8]">
         <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 refined-scroll">
@@ -226,6 +230,7 @@ export function Workbench({
         </div>
       </main>
       <RightRail profile={profile} onProfileChange={setProfile} currentPhase={currentPhase} />
+      {shareOpen && <ShareModal studentId={student.id} onClose={() => setShareOpen(false)} />}
     </div>
   )
 }
