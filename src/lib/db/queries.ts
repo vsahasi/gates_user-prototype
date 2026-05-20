@@ -4,6 +4,16 @@ import { getDb, transact } from './index'
 import type { StudentProfile } from '@/lib/types'
 import { DEFAULT_PROFILE } from '@/lib/defaults'
 
+// node:sqlite returns rows with null prototypes. Next.js refuses to serialize
+// those across the server/client boundary, so we clone every row through this
+// helper before returning. Cheap; rows are small.
+function plain<T>(row: unknown): T {
+  return { ...(row as Record<string, unknown>) } as T
+}
+function plainAll<T>(rows: unknown[]): T[] {
+  return rows.map((r) => plain<T>(r))
+}
+
 export interface Student {
   id: string
   displayName: string
@@ -77,11 +87,14 @@ export function createStudent(input: { displayName: string; personaId?: string }
 }
 
 export function listStudents(): Student[] {
-  return getDb().prepare(`SELECT * FROM students ORDER BY createdAt DESC`).all() as unknown as Student[]
+  return plainAll<Student>(
+    getDb().prepare(`SELECT * FROM students ORDER BY createdAt DESC`).all(),
+  )
 }
 
 export function getStudent(id: string): Student | undefined {
-  return getDb().prepare(`SELECT * FROM students WHERE id = ?`).get(id) as unknown as Student | undefined
+  const row = getDb().prepare(`SELECT * FROM students WHERE id = ?`).get(id)
+  return row ? plain<Student>(row) : undefined
 }
 
 export function getStudentProfile(studentId: string): StudentProfile | null {
@@ -111,7 +124,8 @@ export function createAdult(input: { displayName: string; kind: 'parent' | 'coun
 }
 
 export function getAdult(id: string): Adult | undefined {
-  return getDb().prepare(`SELECT * FROM adults WHERE id = ?`).get(id) as unknown as Adult | undefined
+  const row = getDb().prepare(`SELECT * FROM adults WHERE id = ?`).get(id)
+  return row ? plain<Adult>(row) : undefined
 }
 
 export function createConversation(studentId: string, title: string): Conversation {
@@ -132,13 +146,16 @@ export function createConversation(studentId: string, title: string): Conversati
 }
 
 export function listConversations(studentId: string): Conversation[] {
-  return getDb().prepare(
-    `SELECT * FROM conversations WHERE studentId = ? ORDER BY lastMessageAt DESC`
-  ).all(studentId) as unknown as Conversation[]
+  return plainAll<Conversation>(
+    getDb()
+      .prepare(`SELECT * FROM conversations WHERE studentId = ? ORDER BY lastMessageAt DESC`)
+      .all(studentId),
+  )
 }
 
 export function getConversation(id: string): Conversation | undefined {
-  return getDb().prepare(`SELECT * FROM conversations WHERE id = ?`).get(id) as unknown as Conversation | undefined
+  const row = getDb().prepare(`SELECT * FROM conversations WHERE id = ?`).get(id)
+  return row ? plain<Conversation>(row) : undefined
 }
 
 export function appendMessage(input: {
@@ -177,9 +194,11 @@ export function appendMessage(input: {
 }
 
 export function listMessages(conversationId: string): DbMessage[] {
-  return getDb().prepare(
-    `SELECT * FROM messages WHERE conversationId = ? ORDER BY timestamp`
-  ).all(conversationId) as unknown as DbMessage[]
+  return plainAll<DbMessage>(
+    getDb()
+      .prepare(`SELECT * FROM messages WHERE conversationId = ? ORDER BY timestamp`)
+      .all(conversationId),
+  )
 }
 
 export function issueShareToken(input: {
@@ -203,14 +222,16 @@ export function issueShareToken(input: {
 
 export function claimShareToken(token: string, adultId: string): Link {
   const db = getDb()
-  const tok = db.prepare(`SELECT * FROM share_tokens WHERE token = ?`).get(token) as unknown as ShareToken | undefined
-  if (!tok) throw new Error('Token not found')
+  const tokRow = db.prepare(`SELECT * FROM share_tokens WHERE token = ?`).get(token)
+  if (!tokRow) throw new Error('Token not found')
+  const tok = plain<ShareToken>(tokRow)
   if (tok.claimedByAdultId) throw new Error('Token already claimed')
   if (tok.expiresAt < Date.now()) throw new Error('Token expired')
 
-  const existing = db.prepare(
-    `SELECT * FROM links WHERE studentId = ? AND adultId = ?`
-  ).get(tok.studentId, adultId) as unknown as Link | undefined
+  const existingRow = db
+    .prepare(`SELECT * FROM links WHERE studentId = ? AND adultId = ?`)
+    .get(tok.studentId, adultId)
+  const existing = existingRow ? plain<Link>(existingRow) : undefined
 
   let link: Link
   if (existing) {
@@ -234,15 +255,21 @@ export function claimShareToken(token: string, adultId: string): Link {
 }
 
 export function listLinksForStudent(studentId: string): Link[] {
-  return getDb().prepare(
-    `SELECT * FROM links WHERE studentId = ? ORDER BY createdAt DESC`
-  ).all(studentId) as unknown as Link[]
+  return plainAll<Link>(
+    getDb()
+      .prepare(`SELECT * FROM links WHERE studentId = ? ORDER BY createdAt DESC`)
+      .all(studentId),
+  )
 }
 
 export function listLinksForAdult(adultId: string): Link[] {
-  return getDb().prepare(
-    `SELECT * FROM links WHERE adultId = ? AND status = 'active' ORDER BY createdAt DESC`
-  ).all(adultId) as unknown as Link[]
+  return plainAll<Link>(
+    getDb()
+      .prepare(
+        `SELECT * FROM links WHERE adultId = ? AND status = 'active' ORDER BY createdAt DESC`,
+      )
+      .all(adultId),
+  )
 }
 
 export function revokeLink(studentId: string, adultId: string): void {
