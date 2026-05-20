@@ -1,7 +1,5 @@
 // src/components/trust/HowWeGotHere.tsx
 'use client'
-import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { Signals } from '@/lib/adaptive/signals'
 
 interface Props {
@@ -11,52 +9,73 @@ interface Props {
   ragSources?: Array<{ id: string; label: string }>
 }
 
+const TONE_LABEL: Record<Signals['tone'], string> = {
+  calm: 'calm',
+  anxious: 'anxious',
+  overwhelmed: 'overwhelmed',
+  excited: 'excited',
+  confused: 'confused',
+}
+
 export function HowWeGotHere({ signals, citations, intent, ragSources }: Props) {
-  const [open, setOpen] = useState(false)
+  if (!signals && !citations?.length && !intent && !ragSources?.length) return null
   return (
-    <div className="rounded-xl bg-white border border-border/60 shadow-sm overflow-hidden">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full px-4 py-3 flex items-center justify-between text-xs uppercase tracking-wider text-muted-foreground"
-      >
-        How we got here
-        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-      </button>
-      {open && (
-        <div className="px-4 pb-3 space-y-2 text-xs text-muted-foreground">
-          {intent && (
-            <div>
-              <b>Intent:</b> {intent}
-            </div>
-          )}
-          {signals && (
-            <div>
-              <b>Signals:</b> tone {signals.tone}, readiness {signals.readiness}, load{' '}
-              {signals.cognitiveLoad}, deadlines {signals.deadlinePressure}
-            </div>
-          )}
-          {ragSources && ragSources.length > 0 && (
-            <div>
-              <b>Retrieved:</b>
-              <ul className="list-disc pl-4">
-                {ragSources.map((s) => (
-                  <li key={s.id}>{s.label}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {citations && citations.length > 0 && (
-            <div>
-              <b>Cited:</b>
-              <ul className="list-disc pl-4">
-                {citations.map((c, i) => (
-                  <li key={i}>{c.source}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+    <div className="space-y-3">
+      {intent && (
+        <Row label="Intent">
+          <span className="font-mono text-[11px]">{intent}</span>
+        </Row>
+      )}
+      {signals && (
+        <Row label="Signals">
+          <div className="flex flex-wrap gap-1.5">
+            <Pill k="tone" v={TONE_LABEL[signals.tone]} />
+            <Pill k="readiness" v={signals.readiness} />
+            <Pill k="load" v={signals.cognitiveLoad} />
+            <Pill k="deadlines" v={signals.deadlinePressure} />
+          </div>
+        </Row>
+      )}
+      {ragSources && ragSources.length > 0 && (
+        <Row label="Retrieved">
+          <ul className="text-[11.5px] text-ink-mid space-y-0.5">
+            {ragSources.map((s) => (
+              <li key={s.id} className="font-display italic">
+                · {s.label}
+              </li>
+            ))}
+          </ul>
+        </Row>
+      )}
+      {citations && citations.length > 0 && (
+        <Row label="Cited">
+          <ul className="text-[11.5px] text-ink-mid space-y-0.5">
+            {citations.map((c, i) => (
+              <li key={i} className="font-display italic">
+                · {c.source}
+              </li>
+            ))}
+          </ul>
+        </Row>
       )}
     </div>
+  )
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="eyebrow mb-1">{label}</div>
+      {children}
+    </div>
+  )
+}
+
+function Pill({ k, v }: { k: string; v: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1 font-mono text-[10px] uppercase tracking-wider border border-rule rounded-sm px-1.5 py-0.5 bg-paper">
+      <span className="text-ink-soft">{k}</span>
+      <span className="text-ink">{v}</span>
+    </span>
   )
 }

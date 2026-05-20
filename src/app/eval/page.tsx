@@ -32,71 +32,89 @@ function pct(n: number, d: number): string {
 export default function EvalPage() {
   const report = latestReport()
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-paper">
       <Header />
-      <main className="px-4 sm:px-6 py-8 max-w-3xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Eval report</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Offline accuracy, rubric, and bias-probe results from the most recent <code>pnpm eval:run</code>.
+      <main className="px-6 sm:px-10 py-14 max-w-[920px] mx-auto space-y-8">
+        <header>
+          <div className="eyebrow-accent">Audit · Trust dashboard</div>
+          <h1 className="font-display text-[44px] leading-[1.05] tracking-tight text-ink mt-1.5">
+            How the <span className="italic font-light text-forest">advisor</span> is doing.
+          </h1>
+          <p className="text-[14px] text-ink-mid mt-3 font-display italic leading-relaxed">
+            Offline accuracy, rubric, and bias-probe results from the most recent{' '}
+            <code className="font-mono text-[12px] not-italic bg-paper-deep px-1 py-0.5 rounded-sm">pnpm eval:run</code>.
           </p>
-        </div>
+        </header>
+
+        <hr className="rule-h" />
 
         {!report ? (
-          <div className="rounded-xl border border-border/60 bg-white p-6 text-sm text-muted-foreground">
-            No reports yet. Run <code>pnpm eval:run</code> to generate one.
+          <div className="almanac-card px-6 py-10 text-center">
+            <span className="ornament">·  ·  ·</span>
+            <p className="font-display italic text-[16px] text-ink-soft mt-4">
+              No reports yet.
+            </p>
+            <p className="text-[12.5px] text-ink-faint mt-2">
+              Run{' '}
+              <code className="font-mono bg-paper-deep px-1 py-0.5 rounded-sm">pnpm eval:run</code>{' '}
+              to generate one.
+            </p>
           </div>
         ) : (
           <>
-            <div className="text-xs text-muted-foreground">
-              {report.name} · {new Date(report.data.finishedAt).toLocaleString()}
+            <div className="eyebrow">
+              {report.name} ·{' '}
+              <span className="text-ink-mid">{new Date(report.data.finishedAt).toLocaleString()}</span>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-border/60 bg-white p-4">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Accuracy
-                </div>
-                <div className="text-2xl font-semibold mt-1">
-                  {pct(report.data.accuracy.pass, report.data.accuracy.total)}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {report.data.accuracy.pass}/{report.data.accuracy.total} facts within tolerance
-                </div>
-              </div>
-              <div className="rounded-xl border border-border/60 bg-white p-4">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Rubric avg
-                </div>
-                <div className="text-2xl font-semibold mt-1">
-                  {report.data.rubric.avg.toFixed(2)}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Opus-as-judge: empathy + accuracy + actionability + completeness + non-paternalism
-                </div>
-              </div>
-              <div className="rounded-xl border border-border/60 bg-white p-4">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Bias flags
-                </div>
-                <div className="text-2xl font-semibold mt-1">
-                  {report.data.bias.flagged}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  out of {report.data.bias.total} probes
-                </div>
-              </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Card
+                label="Accuracy"
+                value={pct(report.data.accuracy.pass, report.data.accuracy.total)}
+                detail={`${report.data.accuracy.pass}/${report.data.accuracy.total} facts within tolerance`}
+              />
+              <Card
+                label="Rubric avg"
+                value={report.data.rubric.avg.toFixed(2)}
+                detail="Opus judge — empathy + accuracy + actionability + completeness + non-paternalism"
+              />
+              <Card
+                label="Bias flags"
+                value={String(report.data.bias.flagged)}
+                detail={`out of ${report.data.bias.total} probes`}
+              />
             </div>
-            <details className="rounded-xl border border-border/60 bg-white">
-              <summary className="px-4 py-3 cursor-pointer text-sm font-medium">
-                Full report JSON
+
+            <details className="almanac-card overflow-hidden">
+              <summary className="px-5 py-3 cursor-pointer font-display text-[15px] text-ink hover:bg-paper-warm/40 list-none flex items-center justify-between">
+                <span>Full report JSON</span>
+                <span className="font-mono text-[11px] uppercase tracking-wider text-ink-soft">expand</span>
               </summary>
-              <pre className="text-xs bg-[#f5f5f2] p-4 overflow-x-auto border-t border-border/60">
+              <pre className="font-mono text-[11px] bg-paper-warm p-4 overflow-x-auto border-t border-rule leading-relaxed text-ink-mid">
                 {JSON.stringify(report.data, null, 2)}
               </pre>
             </details>
           </>
         )}
       </main>
+    </div>
+  )
+}
+
+function Card({
+  label,
+  value,
+  detail,
+}: {
+  label: string
+  value: string
+  detail: string
+}) {
+  return (
+    <div className="almanac-card px-5 py-4">
+      <div className="eyebrow">{label}</div>
+      <div className="serif-numeral text-[40px] leading-none text-forest-deep mt-2">{value}</div>
+      <div className="text-[11.5px] text-ink-soft mt-2 leading-relaxed">{detail}</div>
     </div>
   )
 }

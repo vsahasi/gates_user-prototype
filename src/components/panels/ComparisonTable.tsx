@@ -1,6 +1,5 @@
 // src/components/panels/ComparisonTable.tsx
 import type { School } from '@/lib/types'
-import { Info } from 'lucide-react'
 
 interface ComparisonTableProps {
   schools: School[]
@@ -31,65 +30,94 @@ function formatValue(school: School, field: keyof School): string {
   return String(val)
 }
 
-function getCellHighlight(school: School, field: keyof School, allSchools: School[]): string {
-  if (field === 'netPriceMedian' || field === 'inStateTuition' || field === 'medianLoanDebt') {
+function isBest(school: School, field: keyof School, allSchools: School[]): boolean {
+  if (
+    field === 'netPriceMedian' ||
+    field === 'inStateTuition' ||
+    field === 'medianLoanDebt'
+  ) {
     const vals = allSchools.map((s) => s[field]).filter((v) => v != null) as number[]
-    const min = Math.min(...vals)
-    if (school[field] === min) return 'text-emerald-700 font-semibold'
+    return school[field] != null && school[field] === Math.min(...vals)
   }
   if (field === 'gradRate' || field === 'medianEarnings10yr') {
     const vals = allSchools.map((s) => s[field]).filter((v) => v != null) as number[]
-    const max = Math.max(...vals)
-    if (school[field] === max) return 'text-emerald-700 font-semibold'
+    return school[field] != null && school[field] === Math.max(...vals)
   }
-  return ''
+  return false
 }
 
 export function ComparisonTable({ schools, fields, labels }: ComparisonTableProps) {
   if (!schools.length) return null
 
   return (
-    <div className="rounded-xl border border-border/50 bg-white shadow-sm overflow-hidden animate-slide-up">
+    <figure className="almanac-card overflow-hidden animate-slide-up">
+      <figcaption className="px-5 pt-4 pb-3 border-b border-rule">
+        <div className="eyebrow-accent">Table I</div>
+        <h4 className="font-display text-[18px] text-ink mt-0.5 leading-tight">
+          Side-by-side comparison
+        </h4>
+      </figcaption>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-[13.5px]">
           <thead>
-            <tr className="border-b border-border/40 bg-gradient-to-r from-[#1a6b5a]/5 to-transparent">
-              <th className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#1a6b5a]">
-                School
-              </th>
+            <tr className="border-b border-rule">
+              <th className="text-left px-5 py-2.5 eyebrow text-ink">School</th>
               {fields.map((f) => (
-                <th key={f} className="text-left px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+                <th
+                  key={f}
+                  className="text-right px-4 py-2.5 eyebrow whitespace-nowrap"
+                >
                   {labels[f] ?? f}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
-            {schools.map((school, i) => (
-              <tr
-                key={school.unitId}
-                className={`border-b border-border/20 last:border-0 transition-colors hover:bg-[#1a6b5a]/[0.02] ${
-                  i % 2 === 0 ? 'bg-white' : 'bg-[#fafaf8]/50'
-                }`}
-              >
-                <td className="px-4 py-3">
-                  <span className="font-medium text-foreground">{school.name}</span>
-                  <span className="block text-[11px] text-muted-foreground/60">{school.city}, {school.state}</span>
+          <tbody className="divide-y divide-rule">
+            {schools.map((school) => (
+              <tr key={school.unitId} className="group hover:bg-paper-warm/60">
+                <td className="px-5 py-3">
+                  <div className="font-display text-[15px] text-ink leading-tight">
+                    {school.name}
+                  </div>
+                  <div className="text-[11px] text-ink-soft mt-0.5">
+                    {school.city}, {school.state}
+                  </div>
                 </td>
-                {fields.map((f) => (
-                  <td key={f} className={`px-4 py-3 whitespace-nowrap ${getCellHighlight(school, f, schools) || 'text-muted-foreground'}`}>
-                    {formatValue(school, f)}
-                  </td>
-                ))}
+                {fields.map((f) => {
+                  const best = isBest(school, f, schools)
+                  return (
+                    <td
+                      key={f}
+                      className={`px-4 py-3 text-right whitespace-nowrap tabular-nums font-mono text-[13px] ${
+                        best ? 'text-forest-deep font-semibold' : 'text-ink-mid'
+                      }`}
+                    >
+                      <span className="relative">
+                        {formatValue(school, f)}
+                        {best && (
+                          <span
+                            aria-hidden
+                            className="absolute -left-3 top-1/2 -translate-y-1/2 text-forest"
+                            style={{ fontSize: '8px' }}
+                          >
+                            ◆
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 px-4 py-2.5 border-t border-border/30 bg-[#fafaf8]/50">
-        <Info className="h-3 w-3 shrink-0" />
-        Data from 2024. Verify current figures with each institution.
+      <div className="flex items-center gap-2 px-5 py-2.5 border-t border-rule bg-paper-warm/40">
+        <span className="font-display italic text-forest text-[12px]">◆</span>
+        <span className="text-[11px] text-ink-soft">
+          Diamond marks the best value in each column. Figures sourced from College Scorecard 2024; verify with each institution.
+        </span>
       </div>
-    </div>
+    </figure>
   )
 }

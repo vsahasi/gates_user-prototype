@@ -26,67 +26,88 @@ export function ShareModal({ studentId, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
-        <div className="flex items-start justify-between">
-          <h3 className="font-semibold">Share with a caring adult</h3>
-          <button onClick={onClose} className="text-muted-foreground">
+    <div
+      className="fixed inset-0 bg-ink/35 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-card border border-rule shadow-[0_24px_60px_rgba(0,0,0,0.16)] w-full max-w-md p-7 space-y-5 animate-slide-up"
+        style={{ borderRadius: 6 }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="eyebrow-accent">Letter of introduction</div>
+            <h3 className="font-display text-[24px] text-ink mt-1 leading-tight">
+              Share with a <span className="italic font-light text-forest">caring adult</span>
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-ink-soft hover:text-ink text-2xl leading-none -mt-1"
+            aria-label="Close"
+          >
             ×
           </button>
         </div>
+
         {!link ? (
           <>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Who is this for?
-              </label>
+            <div>
+              <label className="eyebrow block mb-1.5">Who is this for?</label>
               <select
                 value={kind}
                 onChange={(e) => setKind(e.target.value as typeof kind)}
-                className="w-full px-3 py-2 rounded-lg border border-border/60"
+                className="field-box w-full"
               >
-                <option value="parent">Parent / guardian</option>
-                <option value="counselor">Counselor</option>
-                <option value="other">Other</option>
+                <option value="parent">Parent or guardian</option>
+                <option value="counselor">School counselor</option>
+                <option value="other">Other caring adult</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Link expires in
-              </label>
-              <select
-                value={ttlDays}
-                onChange={(e) => setTtlDays(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-border/60"
-              >
-                <option value={1}>1 day</option>
-                <option value={7}>7 days</option>
-                <option value={30}>30 days</option>
-              </select>
+            <div>
+              <label className="eyebrow block mb-1.5">The link expires in</label>
+              <div className="flex gap-2">
+                {[1, 7, 30].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setTtlDays(d)}
+                    className={`flex-1 py-2 px-3 text-[13px] border rounded-sm transition-colors ${
+                      ttlDays === d
+                        ? 'bg-ink text-paper border-ink'
+                        : 'bg-card text-ink-mid border-rule hover:border-forest'
+                    }`}
+                  >
+                    <span className="font-display">{d}</span>
+                    <span className="font-mono text-[10.5px] uppercase tracking-wider ml-1 opacity-70">
+                      {d === 1 ? 'day' : 'days'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <button
-              onClick={generate}
-              disabled={busy}
-              className="w-full px-4 py-2 rounded-lg bg-[#1a6b5a] text-white disabled:opacity-50"
-            >
-              Generate link
+            <button onClick={generate} disabled={busy} className="btn-forest w-full">
+              {busy ? 'Generating…' : 'Generate invitation'}
+              <span className="font-display italic opacity-80">→</span>
             </button>
           </>
         ) : (
           <>
-            <div className="text-xs text-muted-foreground">
-              Send this link to the person you want to share with:
-            </div>
+            <p className="text-[14px] text-ink-mid leading-relaxed">
+              Send this link to the person you&apos;d like to bring into the conversation.
+            </p>
             <input
               value={link}
               readOnly
-              className="w-full px-3 py-2 rounded-lg border border-border/60 text-sm"
+              className="field-box w-full font-mono text-[11.5px]"
+              onClick={(e) => (e.target as HTMLInputElement).select()}
             />
             <button
               onClick={() => navigator.clipboard.writeText(link)}
-              className="w-full px-4 py-2 rounded-lg bg-[#1a6b5a] text-white"
+              className="btn-ink w-full"
             >
               Copy link
+              <span className="font-display italic opacity-80">⌘ C</span>
             </button>
           </>
         )}

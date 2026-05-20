@@ -96,170 +96,192 @@ export function AdultWorkspace({ adult, student, summary }: Props) {
         ]
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* Header card */}
-      <div className="rounded-2xl bg-white border border-border/60 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 bg-gradient-to-r from-[#1a6b5a]/8 to-transparent border-b border-border/40">
-          <div className="text-xs uppercase tracking-wider text-[#1a6b5a] font-semibold">
-            {student.displayName}&apos;s pinned context
+    <div className="max-w-[820px] mx-auto px-6 sm:px-10 py-10 space-y-10">
+      {/* Editorial header */}
+      <header className="space-y-3">
+        <div className="eyebrow-accent">A briefing for {roleLabel === 'supporter' ? 'a caring adult' : `the ${roleLabel}`}</div>
+        <h1 className="font-display text-[42px] leading-[1.05] tracking-tight text-ink">
+          On <span className="italic font-light text-forest">{student.displayName}</span>
+        </h1>
+        <p className="text-[14px] text-ink-mid font-display italic">
+          You are signed in as {adult.displayName}. {summary.summary}
+        </p>
+        <hr className="rule-h" />
+      </header>
+
+      {/* Pinned context */}
+      <section className="space-y-6">
+        {!hasAnyContext && (
+          <p className="text-[14px] text-ink-mid font-display italic">
+            {student.displayName} hasn&apos;t added much yet. Once they start chatting and filling
+            in their profile, this page will fill in too.
+          </p>
+        )}
+
+        {/* Quick facts row */}
+        {(summary.grade != null || summary.state) && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+            {summary.grade != null && <Fact label="Grade" value={String(summary.grade)} />}
+            {summary.state && <Fact label="State" value={summary.state} />}
+            <Fact
+              label="Phase"
+              value={summary.currentPhase ?? 'Exploration'}
+            />
+            <Fact
+              label="Threads"
+              value={String(summary.conversations.length || 0)}
+            />
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            You are signed in as {adult.displayName} ({roleLabel}). {summary.summary}
-          </div>
-        </div>
+        )}
 
-        <div className="p-5 space-y-4 text-sm">
-          {!hasAnyContext && (
-            <p className="text-muted-foreground">
-              {student.displayName} hasn&apos;t added much yet. Once they start chatting and filling
-              in their profile, you&apos;ll see context here.
-            </p>
-          )}
+        {summary.interests.length > 0 && (
+          <Block title="Interests" eyebrow="What lights them up">
+            <div className="flex flex-wrap gap-1.5">
+              {summary.interests.map((i) => (
+                <span
+                  key={i}
+                  className="inline-block px-2 py-0.5 rounded-sm border border-forest/20 bg-forest-soft text-forest-deep text-[12px]"
+                >
+                  {i}
+                </span>
+              ))}
+            </div>
+          </Block>
+        )}
 
-          {/* Profile facts */}
-          {(summary.grade != null ||
-            summary.state ||
-            summary.interests.length > 0 ||
-            summary.goals.length > 0 ||
-            summary.constraints.length > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {summary.grade != null && (
-                <div>
-                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Grade</div>
-                  <div>{summary.grade}</div>
-                </div>
-              )}
-              {summary.state && (
-                <div>
-                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">State</div>
-                  <div>{summary.state}</div>
-                </div>
-              )}
-              {summary.interests.length > 0 && (
-                <div className="sm:col-span-2">
-                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Interests</div>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {summary.interests.map((i) => (
-                      <span key={i} className="px-2 py-0.5 rounded-full bg-[#1a6b5a]/10 text-[#1a6b5a] text-xs">
-                        {i}
-                      </span>
-                    ))}
+        {summary.goals.length > 0 && (
+          <Block title="Goals" eyebrow="Where they want to land">
+            <ul className="space-y-1 text-[14px] text-ink-mid">
+              {summary.goals.map((g) => (
+                <li key={g} className="flex gap-2">
+                  <span className="text-forest font-display italic">›</span>
+                  {g}
+                </li>
+              ))}
+            </ul>
+          </Block>
+        )}
+
+        {summary.constraints.length > 0 && (
+          <Block title="Constraints" eyebrow="What's holding the frame">
+            <ul className="space-y-1 text-[14px] text-ink-mid">
+              {summary.constraints.map((c) => (
+                <li key={c} className="flex gap-2">
+                  <span className="text-rust font-display">·</span>
+                  {c}
+                </li>
+              ))}
+            </ul>
+          </Block>
+        )}
+
+        {summary.recentExchanges.length > 0 && (
+          <Block title="Recent exchanges" eyebrow="Their last few words">
+            <div className="space-y-4">
+              {summary.recentExchanges.map((e, i) => (
+                <article key={i} className="border-l-2 border-rule pl-4 space-y-1.5">
+                  <div className="eyebrow">
+                    {e.conversationTitle} · {relative(e.at)}
                   </div>
-                </div>
-              )}
-              {summary.goals.length > 0 && (
-                <div className="sm:col-span-2">
-                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Goals</div>
-                  <ul className="list-disc pl-4 space-y-0.5">
-                    {summary.goals.map((g) => (
-                      <li key={g}>{g}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {summary.constraints.length > 0 && (
-                <div className="sm:col-span-2">
-                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Constraints</div>
-                  <ul className="list-disc pl-4 space-y-0.5">
-                    {summary.constraints.map((c) => (
-                      <li key={c}>{c}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                  <p className="text-[14px] leading-relaxed text-ink">
+                    <span className="font-display italic text-forest mr-1.5">
+                      {student.displayName} —
+                    </span>
+                    {e.studentTurn}
+                  </p>
+                  <p className="text-[13.5px] leading-relaxed text-ink-mid">
+                    <span className="font-display italic text-ink-soft mr-1.5">Advisor —</span>
+                    {e.assistantTurn}
+                  </p>
+                </article>
+              ))}
             </div>
-          )}
+          </Block>
+        )}
 
-          {/* Conversation list */}
-          {summary.conversations.length > 0 && (
-            <div className="pt-3 border-t border-border/40">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">
-                Conversations
-              </div>
-              <div className="space-y-1">
-                {summary.conversations.map((c) => (
-                  <div key={c.id} className="flex items-baseline gap-2 text-sm">
-                    <div className="flex-1 truncate">{c.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {c.messageCount} msg{c.messageCount === 1 ? '' : 's'} · {relative(c.lastMessageAt)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recent exchanges */}
-          {summary.recentExchanges.length > 0 && (
-            <div className="pt-3 border-t border-border/40">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">
-                Recent exchanges
-              </div>
-              <div className="space-y-3">
-                {summary.recentExchanges.map((e, i) => (
-                  <div key={i} className="space-y-1.5">
-                    <div className="text-xs text-muted-foreground">
-                      <span className="italic">{e.conversationTitle}</span> · {relative(e.at)}
-                    </div>
-                    <div className="rounded-lg bg-[#fafaf8] border border-border/40 px-3 py-2 text-sm">
-                      <span className="text-[#1a6b5a] font-medium">{student.displayName}:</span>{' '}
-                      {e.studentTurn}
-                    </div>
-                    <div className="rounded-lg bg-white border border-border/40 px-3 py-2 text-sm">
-                      <span className="text-muted-foreground font-medium">Advisor:</span>{' '}
-                      {e.assistantTurn}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Open questions */}
-          {summary.openQuestions.length > 0 && (
-            <div className="pt-3 border-t border-border/40">
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">
-                Open questions
-              </div>
-              <ul className="list-disc pl-4 space-y-0.5 text-sm">
-                {summary.openQuestions.map((q, i) => (
-                  <li key={i}>{q}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
+        {summary.openQuestions.length > 0 && (
+          <Block title="Open questions" eyebrow="Threads they're pulling on">
+            <ul className="space-y-1.5 text-[14px] text-ink-mid">
+              {summary.openQuestions.map((q, i) => (
+                <li key={i} className="font-display italic leading-snug">
+                  “{q}”
+                </li>
+              ))}
+            </ul>
+          </Block>
+        )}
+      </section>
 
       {/* Adult chat */}
-      <div>
-        <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-          Ask the assistant
+      <section className="space-y-4 pt-4">
+        <div className="flex items-baseline justify-between gap-4">
+          <div>
+            <div className="eyebrow-accent">Your turn</div>
+            <h2 className="font-display text-[22px] text-ink mt-0.5 leading-tight">
+              Ask the assistant
+            </h2>
+          </div>
+          <span className="font-display italic text-[12px] text-ink-soft">
+            scoped to {student.displayName}
+          </span>
         </div>
+
         {messages.length === 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 stagger">
             {suggestedPrompts.map((p) => (
               <button
                 key={p}
                 onClick={() => send(p)}
                 disabled={isLoading}
-                className="text-[13px] px-3 py-1.5 rounded-full border border-[#1a6b5a]/20 bg-white text-[#1a6b5a] hover:bg-[#1a6b5a]/5 disabled:opacity-50"
+                className="almanac-card text-left px-4 py-3 text-[13.5px] text-ink-mid hover:text-ink hover:border-forest hover:bg-forest-soft transition-all disabled:opacity-50"
               >
+                <span className="font-display italic text-forest mr-2">›</span>
                 {p}
               </button>
             ))}
           </div>
         )}
-        <div className="space-y-1">
+
+        <div>
           {messages.map((m, i) => (
             <MessageBubble key={i} message={m} />
           ))}
-          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
+          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+            <TypingIndicator />
+          )}
         </div>
-        <div className="mt-3">
-          <ChatInput onSend={send} disabled={isLoading} />
-        </div>
-      </div>
+
+        <ChatInput onSend={send} disabled={isLoading} />
+      </section>
     </div>
+  )
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-l border-rule-strong pl-3">
+      <div className="eyebrow">{label}</div>
+      <div className="font-display text-[20px] text-ink-mid mt-0.5">{value}</div>
+    </div>
+  )
+}
+
+function Block({
+  title,
+  eyebrow,
+  children,
+}: {
+  title: string
+  eyebrow: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <header className="mb-2">
+        <div className="eyebrow">{eyebrow}</div>
+        <h3 className="font-display text-[20px] text-ink leading-tight">{title}</h3>
+      </header>
+      {children}
+    </section>
   )
 }

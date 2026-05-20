@@ -21,42 +21,66 @@ export function EssayDraft({ data: initial, onPrompt }: Props) {
     a.click()
     URL.revokeObjectURL(url)
   }
+  const wordCount = draft.trim().split(/\s+/).filter(Boolean).length
+
   return (
-    <div className="rounded-xl border border-border/60 bg-white p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">Personal statement draft</h4>
+    <figure className="almanac-card animate-slide-up">
+      <figcaption className="px-5 pt-4 pb-3 border-b border-rule flex items-baseline justify-between gap-4">
+        <div className="min-w-0">
+          <div className="eyebrow-accent">Draft · Personal statement</div>
+          <p className="font-display italic text-[13.5px] text-ink-mid mt-1 leading-snug">
+            “{initial.prompt}”
+          </p>
+        </div>
         <button
           onClick={download}
-          className="text-xs text-[#1a6b5a] hover:underline flex items-center gap-1"
+          className="pen-underline text-[12px] text-forest flex items-center gap-1 shrink-0"
         >
           <Download className="h-3 w-3" /> Export
         </button>
+      </figcaption>
+
+      <div className="px-5 py-4">
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className="w-full min-h-[300px] p-4 bg-paper-warm/40 border border-rule rounded-sm text-[15px] leading-[1.7] font-display text-ink focus:outline-none focus:border-forest focus:bg-card transition-colors"
+          placeholder="Start writing. Even a rough first line is a beginning."
+        />
+        <div className="flex items-center justify-between mt-2">
+          <span className="font-mono text-[10.5px] text-ink-faint uppercase tracking-wider">
+            {wordCount} word{wordCount === 1 ? '' : 's'}
+          </span>
+          <span className="font-display italic text-[11px] text-ink-soft">
+            Common App range: 250–650
+          </span>
+        </div>
       </div>
-      <div className="text-xs text-muted-foreground italic">Prompt: {initial.prompt}</div>
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        className="w-full min-h-[260px] p-3 rounded-lg border border-border/60 text-sm leading-relaxed"
-      />
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40">
-        {[
-          'Tighten this paragraph',
-          'Show me three angles',
-          'Make this more personal',
-          'Check for clichés',
-        ].map((p) => (
-          <button
-            key={p}
-            onClick={() => onPrompt?.(`${p}: ${draft.slice(0, 1000)}`)}
-            className="text-xs px-2.5 py-1 rounded-full bg-[#1a6b5a]/5 border border-[#1a6b5a]/20 text-[#1a6b5a] hover:bg-[#1a6b5a]/10"
-          >
-            {p}
-          </button>
-        ))}
+
+      <div className="px-5 pb-4 border-t border-rule pt-3">
+        <div className="caps-sm mb-2">Ask the advisor</div>
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            'Tighten this paragraph',
+            'Show me three angles',
+            'Make this more personal',
+            'Check for clichés',
+          ].map((p) => (
+            <button
+              key={p}
+              onClick={() => onPrompt?.(`${p}: ${draft.slice(0, 1000)}`)}
+              className="text-[12px] px-2.5 py-1 rounded-sm border border-rule bg-card text-ink-mid hover:border-forest hover:text-forest hover:bg-forest-soft transition-colors"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
-      <p className="text-[11px] rounded bg-amber-50 border border-amber-200 px-2 py-1.5 text-amber-900">
-        Draft only — PathwayAI does not submit to any college on your behalf.
-      </p>
-    </div>
+
+      <div className="mx-5 mb-4 px-3 py-2 border-l-2 border-rust bg-rust-soft text-[12px] text-rust leading-relaxed">
+        <span className="font-display italic font-semibold">A note —</span> this is a draft.
+        PathwayAI does not submit to any college on your behalf.
+      </div>
+    </figure>
   )
 }

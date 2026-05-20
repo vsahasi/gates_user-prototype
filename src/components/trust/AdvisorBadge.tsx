@@ -1,5 +1,4 @@
 // src/components/trust/AdvisorBadge.tsx
-import { ShieldCheck } from 'lucide-react'
 
 interface Props {
   score: number | null
@@ -10,9 +9,10 @@ export function AdvisorBadge({ score }: Props) {
   return (
     <span
       title={`Scored ${(score * 100).toFixed(0)}% on the advisor rubric (empathy, accuracy, actionability, completeness, non-paternalism)`}
-      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800"
+      className="inline-flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-wider px-1.5 py-0.5 border border-forest/30 bg-forest-soft text-forest"
     >
-      <ShieldCheck className="h-3 w-3" /> advisor-rubric
+      <span aria-hidden className="text-forest">✦</span>
+      advisor-reviewed
     </span>
   )
 }

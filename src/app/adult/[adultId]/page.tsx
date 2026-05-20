@@ -14,32 +14,64 @@ export default async function AdultHome({
   if (!a) redirect('/')
   const links = listLinksForAdult(adultId)
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="px-4 sm:px-6 py-10 max-w-2xl mx-auto space-y-4">
-        <h1 className="text-xl font-semibold">Hi {a.displayName}</h1>
-        <p className="text-sm text-muted-foreground">
-          Students who have shared their context with you:
-        </p>
+    <div className="min-h-screen bg-paper">
+      <Header personaName={a.displayName} />
+      <main className="px-6 sm:px-10 py-14 max-w-[820px] mx-auto space-y-10">
+        <header>
+          <div className="eyebrow-accent">A briefing room</div>
+          <h1 className="font-display text-[44px] leading-[1.05] tracking-tight text-ink mt-1.5">
+            Hello, <span className="italic font-light text-forest">{a.displayName}</span>.
+          </h1>
+          <p className="text-[15px] text-ink-mid mt-3 font-display italic leading-relaxed">
+            Students who&apos;ve shared their context with you. Open a name to read their notes
+            and ask questions on their behalf.
+          </p>
+        </header>
+
+        <hr className="rule-h" />
+
         {links.length === 0 ? (
-          <p className="text-sm">No active shares yet.</p>
+          <div className="text-center py-12">
+            <span className="ornament">·  ·  ·</span>
+            <p className="mt-4 font-display italic text-[16px] text-ink-soft">
+              No active shares yet.
+            </p>
+            <p className="text-[13px] text-ink-faint mt-2">
+              When a student sends you a link, the conversation will appear here.
+            </p>
+          </div>
         ) : (
-          <div className="space-y-2">
+          <ul className="space-y-2">
             {links.map((l) => {
               const s = getStudent(l.studentId)
               if (!s) return null
               return (
-                <Link
-                  key={l.id}
-                  href={`/adult/${adultId}/student/${s.id}`}
-                  className="block p-4 rounded-xl border border-border/60 bg-white hover:border-[#1a6b5a]/50"
-                >
-                  <div className="font-medium">{s.displayName}</div>
-                  <div className="text-xs text-muted-foreground">linked as {l.role}</div>
-                </Link>
+                <li key={l.id}>
+                  <Link
+                    href={`/adult/${adultId}/student/${s.id}`}
+                    className="block almanac-card px-5 py-4 hover:border-forest hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(13,74,61,0.08)] transition-all group"
+                  >
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <div className="font-display text-[22px] text-ink leading-tight">
+                          {s.displayName}
+                        </div>
+                        <div className="eyebrow mt-1">
+                          linked as <span className="text-forest">{l.role}</span>
+                        </div>
+                      </div>
+                      <span
+                        aria-hidden
+                        className="font-display text-[20px] text-ink-faint group-hover:text-forest group-hover:translate-x-1 transition-all"
+                      >
+                        →
+                      </span>
+                    </div>
+                  </Link>
+                </li>
               )
             })}
-          </div>
+          </ul>
         )}
       </main>
     </div>

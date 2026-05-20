@@ -30,38 +30,57 @@ export default function Claim() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-paper">
       <Header />
-      <main className="px-4 sm:px-6 py-10 max-w-md mx-auto space-y-4">
-        <h1 className="text-xl font-semibold">
-          A student shared their PathwayAI context with you
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Create your account to view their profile and ask your own questions about helping them.
-        </p>
-        <input
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="Your name"
-          className="w-full px-3 py-2 rounded-lg border border-border/60"
-        />
-        <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as typeof kind)}
-          className="w-full px-3 py-2 rounded-lg border border-border/60"
-        >
-          <option value="parent">Parent / guardian</option>
-          <option value="counselor">Counselor</option>
-          <option value="other">Other caring adult</option>
-        </select>
-        {err && <div className="text-sm text-rose-700">{err}</div>}
-        <button
-          onClick={submit}
-          disabled={busy || !displayName.trim()}
-          className="w-full px-4 py-2 rounded-lg bg-[#1a6b5a] text-white disabled:opacity-50"
-        >
-          Accept invitation
-        </button>
+      <main className="px-6 sm:px-10 py-16 max-w-md mx-auto space-y-6">
+        <header>
+          <div className="eyebrow-accent">A letter of introduction</div>
+          <h1 className="font-display text-[32px] leading-[1.1] text-ink mt-1.5">
+            A student shared their <span className="italic font-light text-forest">PathwayAI</span> context with you.
+          </h1>
+          <p className="text-[14.5px] text-ink-mid mt-3 font-display italic leading-relaxed">
+            Create your account to read their notes and ask the assistant questions about how to help.
+          </p>
+        </header>
+
+        <hr className="rule-h" />
+
+        <div className="space-y-5">
+          <div>
+            <label className="eyebrow block mb-1.5">Your name</label>
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g. Maria’s mom"
+              className="field-line w-full"
+            />
+          </div>
+          <div>
+            <label className="eyebrow block mb-1.5">Your relationship</label>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as typeof kind)}
+              className="field-box w-full"
+            >
+              <option value="parent">Parent or guardian</option>
+              <option value="counselor">School counselor</option>
+              <option value="other">Other caring adult</option>
+            </select>
+          </div>
+          {err && (
+            <div className="border-l-2 border-rust bg-rust-soft px-3 py-2 text-[13px] text-rust">
+              {err}
+            </div>
+          )}
+          <button
+            onClick={submit}
+            disabled={busy || !displayName.trim()}
+            className="btn-ink w-full"
+          >
+            {busy ? 'Accepting…' : 'Accept invitation'}
+            <span className="font-display italic opacity-80">→</span>
+          </button>
+        </div>
       </main>
     </div>
   )

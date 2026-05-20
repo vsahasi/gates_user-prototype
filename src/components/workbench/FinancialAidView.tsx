@@ -39,11 +39,27 @@ export function FinancialAidView({ data: initial, onWalkThrough, onChange }: Pro
       }),
     }))
 
+  const minProjected = rows.reduce<number | null>(
+    (m, r) => (r.projected != null && (m == null || r.projected < m) ? r.projected : m),
+    null,
+  )
+
   return (
-    <div className="rounded-xl border border-border/60 bg-white p-4 space-y-4">
-      <h4 className="text-sm font-semibold">Net price by family income</h4>
-      <div className="flex items-center gap-3">
-        <label className="text-xs text-muted-foreground w-32">Family income</label>
+    <figure className="almanac-card animate-slide-up">
+      <figcaption className="px-5 pt-4 pb-3 border-b border-rule">
+        <div className="eyebrow-accent">Affordability</div>
+        <h4 className="font-display text-[18px] text-ink mt-0.5 leading-tight">
+          Net price by family income
+        </h4>
+      </figcaption>
+
+      <div className="px-5 py-4 border-b border-rule">
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="caps-sm">Family income</span>
+          <span className="serif-numeral text-[22px] text-forest-deep tabular-nums">
+            ${income.toLocaleString()}
+          </span>
+        </div>
         <input
           type="range"
           min={0}
@@ -51,37 +67,58 @@ export function FinancialAidView({ data: initial, onWalkThrough, onChange }: Pro
           step={5000}
           value={income}
           onChange={(e) => setIncomeAndEmit(Number(e.target.value))}
-          className="flex-1"
+          className="w-full accent-forest"
           aria-label="Family income"
         />
-        <span className="w-24 text-right text-xs tabular-nums">
-          ${income.toLocaleString()}
-        </span>
+        <div className="flex justify-between mt-1 text-[10.5px] font-mono text-ink-faint">
+          <span>$0</span>
+          <span>$125k</span>
+          <span>$250k</span>
+        </div>
       </div>
-      <div className="space-y-1">
-        {rows.map(({ school, projected }) => (
-          <div
-            key={school.unitId}
-            className="flex items-center gap-3 py-1 border-b border-border/30 last:border-0"
-          >
-            <div className="flex-1 text-sm truncate">{school.name}</div>
-            <div className="text-sm tabular-nums">
-              {projected != null ? `$${projected.toLocaleString()}` : '—'}
-            </div>
-            {onWalkThrough && (
-              <button
-                onClick={() => onWalkThrough(school.unitId)}
-                className="text-xs text-[#1a6b5a] hover:underline"
+
+      <ul className="divide-y divide-rule">
+        {rows.map(({ school, projected }) => {
+          const isCheapest = projected != null && projected === minProjected
+          return (
+            <li
+              key={school.unitId}
+              className="flex items-center gap-4 px-5 py-3 hover:bg-paper-warm/40"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-display text-[15px] text-ink truncate leading-tight">
+                  {school.name}
+                </div>
+                <div className="text-[11px] text-ink-soft mt-0.5">
+                  {school.city}, {school.state}
+                </div>
+              </div>
+              <div
+                className={`tabular-nums font-mono text-[14px] shrink-0 ${
+                  isCheapest ? 'text-forest-deep font-semibold' : 'text-ink-mid'
+                }`}
               >
-                Walk through →
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <p className="text-[11px] text-muted-foreground">
-        Estimates based on Scorecard median net price; actual aid depends on FAFSA + institutional aid.
+                {projected != null ? `$${projected.toLocaleString()}` : '—'}
+                {isCheapest && (
+                  <span className="ml-1 text-forest" aria-hidden>◆</span>
+                )}
+              </div>
+              {onWalkThrough && (
+                <button
+                  onClick={() => onWalkThrough(school.unitId)}
+                  className="pen-underline text-[12px] text-forest shrink-0"
+                >
+                  walk through →
+                </button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+
+      <p className="px-5 py-2.5 border-t border-rule bg-paper-warm/40 text-[11px] text-ink-soft">
+        Estimates based on Scorecard median net price. Actual aid depends on FAFSA and institutional aid.
       </p>
-    </div>
+    </figure>
   )
 }

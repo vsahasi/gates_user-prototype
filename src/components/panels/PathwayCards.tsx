@@ -1,25 +1,24 @@
 // src/components/panels/PathwayCards.tsx
 import type { PathwayCardsData, PathwayCard } from '@/lib/types'
-import { GraduationCap, Clock, DollarSign, TrendingUp, ArrowRight } from 'lucide-react'
 
 const FIT_CONFIG = {
-  high: { label: 'Strong fit', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-  medium: { label: 'Worth exploring', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
-  low: { label: 'Stretch', bg: 'bg-rose-50', text: 'text-rose-600', dot: 'bg-rose-400' },
+  high:   { label: 'Strong fit',       text: 'text-forest',  bg: 'bg-forest-soft border-forest/25' },
+  medium: { label: 'Worth exploring',  text: 'text-marigold', bg: 'bg-amber-50 border-marigold/30' },
+  low:    { label: 'Stretch',          text: 'text-rust',    bg: 'bg-rust-soft border-rust/25' },
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  community_college: 'Community College',
-  '4_year': '4-Year University',
-  trade: 'Trade / Vocational',
+  community_college: 'Community college',
+  '4_year': 'Four-year university',
+  trade: 'Trade / vocational',
   military: 'Military',
-  tribal: 'Tribal College',
+  tribal: 'Tribal college',
   apprenticeship: 'Apprenticeship',
 }
 
 export function PathwayCards({ data }: { data: PathwayCardsData }) {
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
+    <div className="flex gap-3 overflow-x-auto refined-scroll pb-3 -mx-1 px-1 snap-x snap-mandatory">
       {data.pathways.map((pathway, i) => (
         <PathwayCardItem key={i} pathway={pathway} index={i} />
       ))}
@@ -29,58 +28,51 @@ export function PathwayCards({ data }: { data: PathwayCardsData }) {
 
 function PathwayCardItem({ pathway, index }: { pathway: PathwayCard; index: number }) {
   const fit = FIT_CONFIG[pathway.fit]
-
   return (
-    <div
-      className="min-w-[280px] max-w-[320px] snap-start rounded-xl border border-border/50 bg-white p-4 shadow-sm hover:shadow-md transition-shadow animate-slide-up flex flex-col"
+    <article
+      className="min-w-[280px] max-w-[320px] snap-start almanac-card hover:shadow-[0_8px_20px_rgba(13,74,61,0.08)] hover:-translate-y-0.5 transition-all animate-slide-up flex flex-col"
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-start gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1a6b5a]/8 text-[#1a6b5a]">
-            <GraduationCap className="h-4.5 w-4.5" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-sm text-foreground leading-tight">{pathway.title}</h3>
-            <span className="text-[11px] text-muted-foreground">{TYPE_LABELS[pathway.type] ?? pathway.type}</span>
-          </div>
+      <header className="px-4 pt-4 pb-3 border-b border-rule">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="eyebrow">{TYPE_LABELS[pathway.type] ?? pathway.type}</div>
+          <span
+            className={`text-[10.5px] font-mono uppercase tracking-wider px-1.5 py-0.5 border rounded-sm ${fit.bg} ${fit.text}`}
+          >
+            {fit.label}
+          </span>
         </div>
-        <span className={`flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full font-medium ${fit.bg} ${fit.text} shrink-0`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${fit.dot}`} />
-          {fit.label}
-        </span>
-      </div>
+        <h3 className="font-display text-[19px] text-ink leading-tight mt-1.5">
+          {pathway.title}
+        </h3>
+      </header>
 
-      {/* Description */}
-      <p className="text-[13px] text-muted-foreground leading-relaxed mb-3 flex-1">{pathway.description}</p>
+      <p className="px-4 pt-3 text-[13.5px] text-ink-mid leading-relaxed flex-1">
+        {pathway.description}
+      </p>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 py-2.5 border-y border-border/40 mb-3">
-        <div className="flex flex-col items-center text-center">
-          <Clock className="h-3.5 w-3.5 text-muted-foreground/60 mb-1" />
-          <span className="text-[11px] text-muted-foreground/70">Duration</span>
-          <span className="text-xs font-semibold text-foreground">{pathway.timeToComplete}</span>
-        </div>
-        <div className="flex flex-col items-center text-center">
-          <DollarSign className="h-3.5 w-3.5 text-muted-foreground/60 mb-1" />
-          <span className="text-[11px] text-muted-foreground/70">Est. Cost</span>
-          <span className="text-xs font-semibold text-foreground">{pathway.estimatedCost}</span>
-        </div>
-        <div className="flex flex-col items-center text-center">
-          <TrendingUp className="h-3.5 w-3.5 text-muted-foreground/60 mb-1" />
-          <span className="text-[11px] text-muted-foreground/70">Earnings</span>
-          <span className="text-xs font-semibold text-foreground">{pathway.earnings}</span>
-        </div>
-      </div>
+      <dl className="grid grid-cols-3 px-4 py-3 border-t border-rule mt-3 gap-x-2">
+        <Datum label="Duration" value={pathway.timeToComplete} />
+        <Datum label="Cost" value={pathway.estimatedCost} />
+        <Datum label="Earnings" value={pathway.earnings} />
+      </dl>
 
-      {/* Next step */}
-      <div className="flex items-center gap-2 text-[13px]">
-        <ArrowRight className="h-3.5 w-3.5 text-[#1a6b5a] shrink-0" />
-        <span className="text-muted-foreground">
-          <span className="font-medium text-foreground">Next:</span> {pathway.nextStep}
-        </span>
-      </div>
+      <footer className="px-4 py-3 border-t border-rule bg-paper-warm/40">
+        <div className="eyebrow mb-1">Next step</div>
+        <p className="text-[13px] text-ink leading-snug">
+          <span className="font-display italic text-forest mr-1">›</span>
+          {pathway.nextStep}
+        </p>
+      </footer>
+    </article>
+  )
+}
+
+function Datum({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-center">
+      <div className="serif-numeral text-[15px] text-ink leading-tight">{value}</div>
+      <div className="eyebrow mt-0.5 text-[9.5px]">{label}</div>
     </div>
   )
 }

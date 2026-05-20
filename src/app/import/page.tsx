@@ -30,26 +30,50 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-paper">
       <Header />
-      <main className="px-4 sm:px-6 py-10 max-w-md mx-auto space-y-4">
-        <h1 className="text-xl font-semibold">Restore from export</h1>
-        <p className="text-sm text-muted-foreground">
-          Upload a JSON file you exported from PathwayAI to restore your memory on this device.
-        </p>
-        <input
-          type="file"
-          accept="application/json"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm"
-        />
-        {err && <div className="text-sm text-rose-700">{err}</div>}
+      <main className="px-6 sm:px-10 py-16 max-w-md mx-auto space-y-6">
+        <header>
+          <div className="eyebrow-accent">A returning journal</div>
+          <h1 className="font-display text-[32px] leading-[1.1] text-ink mt-1.5">
+            Restore from a <span className="italic font-light text-forest">previous export</span>.
+          </h1>
+          <p className="text-[14.5px] text-ink-mid mt-3 font-display italic leading-relaxed">
+            Upload the JSON file you saved. Your conversations, profile, and notes will come back
+            onto this device.
+          </p>
+        </header>
+
+        <hr className="rule-h" />
+
+        <label className="block almanac-inset rounded-sm border-dashed border-2 px-5 py-8 text-center cursor-pointer hover:border-forest hover:bg-forest-soft transition-colors">
+          <input
+            type="file"
+            accept="application/json"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="sr-only"
+          />
+          <div className="font-display text-[18px] text-ink">
+            {file ? file.name : 'Drop a JSON file or click to choose'}
+          </div>
+          <div className="eyebrow mt-1">
+            {file ? `${(file.size / 1024).toFixed(1)} KB` : 'pathwayai-memory-*.json'}
+          </div>
+        </label>
+
+        {err && (
+          <div className="border-l-2 border-rust bg-rust-soft px-3 py-2 text-[13px] text-rust">
+            {err}
+          </div>
+        )}
+
         <button
           onClick={submit}
           disabled={!file || busy}
-          className="w-full px-4 py-2 rounded-lg bg-[#1a6b5a] text-white disabled:opacity-50"
+          className="btn-ink w-full"
         >
-          Restore
+          {busy ? 'Restoring…' : 'Restore my almanac'}
+          <span className="font-display italic opacity-80">↩</span>
         </button>
       </main>
     </div>
