@@ -52,7 +52,11 @@ function inferPhase(messages: DisplayMessage[]): Phase {
   return 'transition'
 }
 
-function renderStructuredComponent(component?: StructuredComponent) {
+function renderStructuredComponent(
+  component: StructuredComponent | undefined,
+  onPatch: (slotKey: string, data: unknown) => void,
+  messageKey: string,
+) {
   if (!component) return null
   if (component.type === 'comparison_table') {
     const data = component.data as ComparisonTableData
@@ -68,10 +72,20 @@ function renderStructuredComponent(component?: StructuredComponent) {
     return <TimelineChecklist data={component.data as TimelineChecklistData} />
   }
   if (component.type === 'decision_matrix') {
-    return <DecisionMatrix data={component.data as DecisionMatrixData} />
+    return (
+      <DecisionMatrix
+        data={component.data as DecisionMatrixData}
+        onChange={(next) => onPatch(`${messageKey}:decision_matrix`, next)}
+      />
+    )
   }
   if (component.type === 'financial_aid_view') {
-    return <FinancialAidView data={component.data as FinancialAidViewData} />
+    return (
+      <FinancialAidView
+        data={component.data as FinancialAidViewData}
+        onChange={(next) => onPatch(`${messageKey}:financial_aid_view`, next)}
+      />
+    )
   }
   if (component.type === 'fafsa_draft') {
     return <FAFSADraft data={component.data as FAFSADraftData} />
@@ -116,8 +130,28 @@ export function Workbench({
   )
   const [isLoading, setIsLoading] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [workbenchState, setWorkbenchState] = useState<Record<string, unknown>>(() =>
+    conversation.workbenchStateJson ? JSON.parse(conversation.workbenchStateJson) : {},
+  )
   const bottomRef = useRef<HTMLDivElement>(null)
   const currentPhase = inferPhase(messages)
+
+  const patchWorkbench = useCallback(
+    async (slotKey: string, data: unknown) => {
+      const next = { ...workbenchState, [slotKey]: data }
+      setWorkbenchState(next)
+      try {
+        await fetch(`/api/conversations/${conversation.id}/workbench`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(next),
+        })
+      } catch {
+        // Non-critical; the next page load will re-read from server.
+      }
+    },
+    [workbenchState, conversation.id],
+  )
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -149,6 +183,7 @@ export function Workbench({
           studentId: student.id,
           personaId: student.personaId,
           profile,
+          workbenchState,
         }),
       })
 
@@ -225,7 +260,11 @@ export function Workbench({
               <MessageBubble
                 key={i}
                 message={m}
-                structuredComponent={renderStructuredComponent(m.structuredComponent)}
+                structuredComponent={renderStructuredComponent(
+                  m.structuredComponent,
+                  patchWorkbench,
+                  `msg-${i}`,
+                )}
                 citations={m.citations}
                 rubricOverall={m.rubricOverall}
               />

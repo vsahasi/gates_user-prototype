@@ -18,10 +18,15 @@ export function projectNetPrice(input: {
 interface Props {
   data: FinancialAidViewData
   onWalkThrough?: (schoolId: string) => void
+  onChange?: (next: FinancialAidViewData) => void
 }
 
-export function FinancialAidView({ data: initial, onWalkThrough }: Props) {
+export function FinancialAidView({ data: initial, onWalkThrough, onChange }: Props) {
   const [income, setIncome] = useState(initial.familyIncome)
+  function setIncomeAndEmit(v: number) {
+    setIncome(v)
+    onChange?.({ ...initial, familyIncome: v })
+  }
   const rows = initial.schools
     .map((id) => SCHOOLS.find((s) => s.unitId === id))
     .filter(Boolean)
@@ -45,7 +50,7 @@ export function FinancialAidView({ data: initial, onWalkThrough }: Props) {
           max={250000}
           step={5000}
           value={income}
-          onChange={(e) => setIncome(Number(e.target.value))}
+          onChange={(e) => setIncomeAndEmit(Number(e.target.value))}
           className="flex-1"
           aria-label="Family income"
         />

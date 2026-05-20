@@ -72,12 +72,13 @@ export async function POST(request: NextRequest) {
   runMigrations()
   const body = await request.json()
   // profile is client-supplied and trusted; add schema validation before production
-  const { message, sessionId, personaId, profile, studentId } = body as {
+  const { message, sessionId, personaId, profile, studentId, workbenchState } = body as {
     message: string
     sessionId: string
     personaId?: string
     profile?: Partial<StudentProfile>
     studentId?: string
+    workbenchState?: Record<string, unknown>
   }
 
   // Input guardrails
@@ -190,6 +191,11 @@ export async function POST(request: NextRequest) {
     onetData: onet,
   })
 
+  const workbenchSnippet =
+    workbenchState && Object.keys(workbenchState).length > 0
+      ? `\n\nCURRENT WORKBENCH STATE (the student has been interacting with these panels):\n${JSON.stringify(workbenchState, null, 2)}\nReference this when relevant.`
+      : ''
+
   // Stream from Claude
   const encoder = new TextEncoder()
   let fullResponse = ''
@@ -201,7 +207,7 @@ export async function POST(request: NextRequest) {
           model: 'claude-sonnet-4-6',
           max_tokens: 2500,
           system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userMessage }],
+          messages: [{ role: 'user', content: userMessage + workbenchSnippet }],
         })
 
         for await (const chunk of claudeStream) {

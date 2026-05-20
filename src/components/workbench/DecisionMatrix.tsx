@@ -18,20 +18,23 @@ export function rankOptions(d: DecisionMatrixData): Array<{ id: string; label: s
 interface Props {
   data: DecisionMatrixData
   onAskWhy?: (weights: Record<string, number>) => void
+  onChange?: (next: DecisionMatrixData) => void
 }
 
-export function DecisionMatrix({ data: initial, onAskWhy }: Props) {
+export function DecisionMatrix({ data: initial, onAskWhy, onChange }: Props) {
   const [data, setData] = useState(initial)
   const ranked = rankOptions(data)
   const maxScore = Math.max(...ranked.map((r) => r.score), 1)
 
   function setWeight(criterionId: string, weight: number) {
-    setData({
+    const next = {
       ...data,
       criteria: data.criteria.map((c) =>
         c.id === criterionId ? { ...c, weight } : c,
       ),
-    })
+    }
+    setData(next)
+    onChange?.(next)
   }
 
   return (
