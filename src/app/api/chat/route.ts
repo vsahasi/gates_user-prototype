@@ -5,6 +5,13 @@ import { z } from 'zod'
 import { getOrCreateSession, updateStudentProfile, setStudentProfile } from '@/lib/orchestration/session'
 import { runMigrations } from '@/lib/db'
 import { appendMessage, getConversation, createConversation } from '@/lib/db/queries'
+import { classifyTone } from '@/lib/adaptive/tone'
+import {
+  computeReadiness,
+  computeCognitiveLoad,
+  computeDeadlinePressure,
+  type Signals,
+} from '@/lib/adaptive/signals'
 
 // Idempotent (CREATE IF NOT EXISTS); cheap.
 runMigrations()
@@ -105,6 +112,23 @@ export async function POST(request: NextRequest) {
   // Classify intent
   const classification = await classifyIntent(message, session)
 
+  // Adaptive signals (tone is async; the others are pure)
+  const tone = await classifyTone(message)
+  const signals: Signals = {
+    tone,
+    readiness: computeReadiness({
+      messageCount: session.conversationHistory.length,
+      profile: session.studentProfile,
+      intent: classification.intent,
+    }),
+    cognitiveLoad: computeCognitiveLoad(
+      session.conversationHistory
+        .filter((m) => m.role === 'user')
+        .map((m) => ({ content: m.content })),
+    ),
+    deadlinePressure: computeDeadlinePressure([]),
+  }
+
   // Update profile with extracted params
   if (!profile && classification.extractedParams.state) {
     updateStudentProfile(sessionId, { state: classification.extractedParams.state })
@@ -196,11 +220,12 @@ export async function POST(request: NextRequest) {
         const retrievedDataStr = JSON.stringify({ rag, scorecard, onet })
         const outputCheck = checkOutputGuardrails(fullResponse, retrievedDataStr)
 
-        // Persist assistant turn
+        // Persist assistant turn with signals
         appendMessage({
           conversationId: conv.id,
           role: 'assistant',
           content: outputCheck.response,
+          signals,
         })
 
         controller.close()
