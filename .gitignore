@@ -41,8 +41,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# IPEDS raw CSV downloads — large files, do not commit
-/data/
+# SQLite databases
+/data/*.db
+/data/*.db-journal
+/data/*.db-wal
+/data/*.db-shm
+
+# Eval reports (regenerated)
+/eval/reports/*.json
+!/eval/reports/.gitkeep
 
 # Git worktrees
 /.worktrees/
