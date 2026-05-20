@@ -277,3 +277,91 @@ export function revokeLink(studentId: string, adultId: string): void {
     `UPDATE links SET status = 'revoked' WHERE studentId = ? AND adultId = ?`
   ).run(studentId, adultId)
 }
+
+// ---------------------------------------------------------------------------
+// Student selections
+// ---------------------------------------------------------------------------
+
+export interface StudentSelection {
+  id: string
+  studentId: string
+  kind: 'school' | 'pathway' | 'major' | 'career'
+  refId: string
+  refLabel: string
+  note: string | null
+  stance: 'considering' | 'leaning' | 'committed'
+  createdAt: number
+}
+
+export function createSelection(input: {
+  studentId: string
+  kind: StudentSelection['kind']
+  refId: string
+  refLabel: string
+  note?: string
+  stance?: StudentSelection['stance']
+}): StudentSelection {
+  const db = getDb()
+  const existing = db
+    .prepare(
+      `SELECT * FROM student_selections WHERE studentId = ? AND kind = ? AND refId = ?`,
+    )
+    .get(input.studentId, input.kind, input.refId)
+
+  if (existing) {
+    const row = plain<StudentSelection>(existing)
+    const note = input.note !== undefined ? input.note : row.note
+    const stance = input.stance ?? row.stance
+    db.prepare(
+      `UPDATE student_selections SET refLabel = ?, note = ?, stance = ? WHERE id = ?`,
+    ).run(input.refLabel, note, stance, row.id)
+    return plain<StudentSelection>(
+      db.prepare(`SELECT * FROM student_selections WHERE id = ?`).get(row.id)!,
+    )
+  }
+
+  const sel: StudentSelection = {
+    id: nanoid(),
+    studentId: input.studentId,
+    kind: input.kind,
+    refId: input.refId,
+    refLabel: input.refLabel,
+    note: input.note ?? null,
+    stance: input.stance ?? 'considering',
+    createdAt: Date.now(),
+  }
+  db.prepare(
+    `INSERT INTO student_selections (id, studentId, kind, refId, refLabel, note, stance, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(sel.id, sel.studentId, sel.kind, sel.refId, sel.refLabel, sel.note, sel.stance, sel.createdAt)
+  return sel
+}
+
+export function listSelections(studentId: string): StudentSelection[] {
+  return plainAll<StudentSelection>(
+    getDb()
+      .prepare(
+        `SELECT * FROM student_selections WHERE studentId = ? ORDER BY createdAt DESC`,
+      )
+      .all(studentId),
+  )
+}
+
+export function getSelection(id: string): StudentSelection | undefined {
+  const row = getDb()
+    .prepare(`SELECT * FROM student_selections WHERE id = ?`)
+    .get(id)
+  return row ? plain<StudentSelection>(row) : undefined
+}
+
+export function updateSelectionStance(id: string, stance: StudentSelection['stance']): void {
+  getDb()
+    .prepare(`UPDATE student_selections SET stance = ? WHERE id = ?`)
+    .run(stance, id)
+}
+
+export function removeSelection(id: string): void {
+  getDb()
+    .prepare(`DELETE FROM student_selections WHERE id = ?`)
+    .run(id)
+}
