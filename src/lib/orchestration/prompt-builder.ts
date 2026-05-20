@@ -50,7 +50,7 @@ Use when the student is comparing affordability across schools. familyIncome is 
 <!-- COMPONENT:fafsa_draft -->
 {"sections": [{"id": "household", "title": "Household", "fields": [{"id": "size", "label": "Household size", "value": "", "help": "Number of people supported"}]}]}
 <!-- /COMPONENT -->
-Use when the student is preparing or asking about FAFSA. Pre-fill `value` from profile when known.
+Use when the student is preparing or asking about FAFSA. Pre-fill the 'value' field from the student profile when known.
 
 <!-- COMPONENT:essay_draft -->
 {"prompt": "<the application prompt>", "draft": "<the essay draft>"}
