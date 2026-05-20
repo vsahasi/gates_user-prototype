@@ -70,7 +70,7 @@ export default function Home() {
         <div className="mx-auto max-w-[1180px] px-6 sm:px-10 py-10 flex flex-col items-center gap-4 text-center">
           <div className="text-[11px] tracking-widest uppercase text-ink-soft font-sans">Built for the</div>
           <div className="font-display text-[22px] sm:text-[26px] leading-tight text-ink tracking-tight">
-            Bill &amp; Melinda Gates Foundation
+            Gates Foundation
           </div>
           <div className="rule-fancy w-48"><span className="ornament">❧</span></div>
           <div className="eyebrow text-ink-soft">by Ascend Consulting · UC Berkeley · MMXXVI</div>

@@ -6,11 +6,16 @@ import {
   getStudent,
   getStudentProfile,
   listLinksForAdult,
+  getOrCreateAdultConversation,
+  listAdultMessages,
+  appendAdultMessage,
 } from '@/lib/db/queries'
+import { runMigrations } from '@/lib/db'
 import { getPinnedSummary } from '@/lib/orchestration/pinned-summary'
 import { currentDateDirective } from '@/lib/orchestration/prompt-builder'
 
 export async function POST(req: Request) {
+  runMigrations()
   const { message, adultId, studentId } = (await req.json()) as {
     message: string
     adultId: string
@@ -23,6 +28,10 @@ export async function POST(req: Request) {
   if (!links.some((l) => l.studentId === studentId)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
   }
+
+  // Ensure the adult↔student conversation row exists; persist the user turn.
+  const conv = getOrCreateAdultConversation(adultId, studentId)
+  appendAdultMessage({ adultConvId: conv.id, role: 'user', content: message })
 
   const profile = getStudentProfile(studentId)
   const summary = getPinnedSummary(studentId)
@@ -53,25 +62,50 @@ ${tone}
 
 Never invent facts about the student. If asked about something not in the profile, say so. Suggest questions the adult could ask their student rather than making decisions for them.`
 
-  const client = new Anthropic()
-  const stream = client.messages.stream({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    system,
-    messages: [{ role: 'user', content: message }],
-  })
+  // Build full history for context. The user turn we just persisted is included
+  // so the model sees its own latest instruction.
+  const history = listAdultMessages(conv.id).map((m) => ({
+    role: m.role === 'system' ? 'assistant' : (m.role as 'user' | 'assistant'),
+    content: m.content,
+  }))
 
+  const client = new Anthropic()
   const encoder = new TextEncoder()
+  let assistantText = ''
+
   const readable = new ReadableStream({
     async start(controller) {
-      for await (const event of stream) {
-        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-          controller.enqueue(encoder.encode(event.delta.text))
+      try {
+        const stream = client.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          system,
+          messages: history,
+        })
+        for await (const event of stream) {
+          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            assistantText += event.delta.text
+            controller.enqueue(encoder.encode(event.delta.text))
+          }
         }
+        // Persist the assistant turn after the stream completes.
+        if (assistantText.trim()) {
+          appendAdultMessage({ adultConvId: conv.id, role: 'assistant', content: assistantText })
+        }
+        controller.close()
+      } catch (err) {
+        const status = (err as { status?: number })?.status
+        const overloaded = status === 529 || status === 503
+        console.error(`[adult/chat] stream failed (status=${status ?? 'unknown'})`, err)
+        const errorMsg = overloaded
+          ? "\n\nThe advisor is briefly overloaded — try again in a minute."
+          : '\n\nSomething went wrong. Please try again.'
+        controller.enqueue(encoder.encode(errorMsg))
+        controller.close()
       }
-      controller.close()
     },
   })
+
   return new Response(readable, {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   })

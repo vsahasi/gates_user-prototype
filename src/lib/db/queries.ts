@@ -279,6 +279,79 @@ export function revokeLink(studentId: string, adultId: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Adult conversations + messages (one conversation per adult↔student pair)
+// ---------------------------------------------------------------------------
+
+export interface AdultConversation {
+  id: string
+  adultId: string
+  studentId: string
+  lastMessageAt: number
+  createdAt: number
+}
+
+export interface AdultMessage {
+  id: string
+  adultConvId: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp: number
+}
+
+export function getOrCreateAdultConversation(adultId: string, studentId: string): AdultConversation {
+  const db = getDb()
+  const existing = db
+    .prepare(`SELECT * FROM adult_conversations WHERE adultId = ? AND studentId = ?`)
+    .get(adultId, studentId)
+  if (existing) return plain<AdultConversation>(existing)
+  const conv: AdultConversation = {
+    id: nanoid(),
+    adultId,
+    studentId,
+    lastMessageAt: Date.now(),
+    createdAt: Date.now(),
+  }
+  db.prepare(
+    `INSERT INTO adult_conversations (id, adultId, studentId, lastMessageAt, createdAt)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(conv.id, conv.adultId, conv.studentId, conv.lastMessageAt, conv.createdAt)
+  return conv
+}
+
+export function listAdultMessages(adultConvId: string): AdultMessage[] {
+  return plainAll<AdultMessage>(
+    getDb()
+      .prepare(`SELECT * FROM adult_messages WHERE adultConvId = ? ORDER BY timestamp`)
+      .all(adultConvId),
+  )
+}
+
+export function appendAdultMessage(input: {
+  adultConvId: string
+  role: AdultMessage['role']
+  content: string
+}): AdultMessage {
+  const m: AdultMessage = {
+    id: nanoid(),
+    adultConvId: input.adultConvId,
+    role: input.role,
+    content: input.content,
+    timestamp: Date.now(),
+  }
+  transact(() => {
+    const db = getDb()
+    db.prepare(
+      `INSERT INTO adult_messages (id, adultConvId, role, content, timestamp)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(m.id, m.adultConvId, m.role, m.content, m.timestamp)
+    db.prepare(
+      `UPDATE adult_conversations SET lastMessageAt = ? WHERE id = ?`,
+    ).run(m.timestamp, m.adultConvId)
+  })
+  return m
+}
+
+// ---------------------------------------------------------------------------
 // Student selections
 // ---------------------------------------------------------------------------
 

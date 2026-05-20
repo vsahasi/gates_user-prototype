@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { ChatInput } from '@/components/chat/ChatInput'
 import { MessageBubble, TypingIndicator } from '@/components/chat/MessageBubble'
-import type { Adult, Student } from '@/lib/db/queries'
+import type { Adult, Student, AdultMessage } from '@/lib/db/queries'
 import type { PinnedSummary } from '@/lib/orchestration/pinned-summary'
 
 interface Props {
   adult: Adult
   student: Student
   summary: PinnedSummary
+  initialMessages?: AdultMessage[]
 }
 
 interface Msg {
@@ -26,8 +27,14 @@ function relative(ts: number): string {
   return `${Math.floor(d / 86400)}d ago`
 }
 
-export function AdultWorkspace({ adult, student, summary }: Props) {
-  const [messages, setMessages] = useState<Msg[]>([])
+export function AdultWorkspace({ adult, student, summary, initialMessages = [] }: Props) {
+  const [messages, setMessages] = useState<Msg[]>(() =>
+    initialMessages.map((m) => ({
+      role: m.role === 'system' ? 'assistant' : (m.role as 'user' | 'assistant'),
+      content: m.content,
+      timestamp: m.timestamp,
+    })),
+  )
   const [isLoading, setLoading] = useState(false)
 
   async function send(text: string) {
