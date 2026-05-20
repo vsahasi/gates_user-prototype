@@ -16,19 +16,16 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-16 lg:gap-24 items-start">
             {/* Left: editorial hero */}
             <div className="space-y-8 animate-fade-in">
-              <div className="eyebrow-accent">Volume I · A study companion</div>
-              <h1 className="font-display text-[64px] sm:text-[80px] leading-[0.92] tracking-tight text-ink">
-                The road{' '}
-                <span className="italic font-light text-forest">from here</span>{' '}
-                <br className="hidden sm:block" />
-                to{' '}
-                <span className="italic font-light text-forest">there</span>.
+              <div className="eyebrow-accent">A study companion for what&apos;s next</div>
+              <h1 className="font-display text-[56px] sm:text-[68px] leading-[0.93] tracking-tight text-ink">
+                Your next mile,{' '}
+                <span className="italic font-light text-forest">considered</span>.
               </h1>
-              <p className="text-[17px] leading-[1.7] text-ink-mid max-w-[34rem] dropcap">
+              <p className="text-[17px] leading-[1.7] text-ink-mid max-w-[34rem]">
                 Choosing a college, a major, or a first career is not one decision — it&apos;s a long
-                hallway of small ones. The Pathway Almanac is a working notebook: it remembers what
-                you&apos;ve told it, surfaces the data behind your options, and brings the adults you
-                trust into the conversation when you want them.
+                hallway of small ones. Pathway is a working notebook: it remembers what you&apos;ve
+                told it, surfaces the data behind your options, and brings the adults you trust into
+                the conversation when you want them.
               </p>
               <div className="flex items-center gap-6 pt-2">
                 <div className="rule-fancy w-32"><span className="ornament">❦</span></div>
@@ -70,11 +67,13 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-rule mt-24">
-        <div className="mx-auto max-w-[1180px] px-6 sm:px-10 py-8 flex items-center justify-between text-[12.5px] text-ink-soft">
-          <span className="font-display italic">
-            A prototype for the Bill &amp; Melinda Gates Foundation
-          </span>
-          <span className="eyebrow">2026 · Ascend Consulting · UC Berkeley</span>
+        <div className="mx-auto max-w-[1180px] px-6 sm:px-10 py-10 flex flex-col items-center gap-4 text-center">
+          <div className="text-[11px] tracking-widest uppercase text-ink-soft font-sans">Built for the</div>
+          <div className="font-display text-[22px] sm:text-[26px] leading-tight text-ink tracking-tight">
+            Bill &amp; Melinda Gates Foundation
+          </div>
+          <div className="rule-fancy w-48"><span className="ornament">❧</span></div>
+          <div className="eyebrow text-ink-soft">by Ascend Consulting · UC Berkeley · MMXXVI</div>
         </div>
       </footer>
     </div>
