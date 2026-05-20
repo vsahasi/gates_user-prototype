@@ -2,7 +2,12 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
-import { getOrCreateSession, updateSession, updateStudentProfile, setStudentProfile } from '@/lib/orchestration/session'
+import { getOrCreateSession, updateStudentProfile, setStudentProfile } from '@/lib/orchestration/session'
+import { runMigrations } from '@/lib/db'
+import { appendMessage, getConversation, createConversation } from '@/lib/db/queries'
+
+// Idempotent (CREATE IF NOT EXISTS); cheap.
+runMigrations()
 import { checkInputGuardrails, checkOutputGuardrails, formatDataVintageDisclosure } from '@/lib/orchestration/guardrails'
 import { classifyIntent } from '@/lib/orchestration/intent'
 import { buildUserMessage, SYSTEM_PROMPT } from '@/lib/orchestration/prompt-builder'
@@ -10,7 +15,7 @@ import { ragService } from '@/lib/services/rag'
 import { createScorecardService } from '@/lib/services/scorecard'
 import { createONETService } from '@/lib/services/onet'
 import { getPersonaById } from '@/lib/data/personas'
-import type { IntentCategory, Message, StudentProfile } from '@/lib/types'
+import type { IntentCategory, StudentProfile } from '@/lib/types'
 
 // Mirrors StudentProfile in src/lib/types.ts. All fields optional because the
 // client sends a partial profile (only the fields it has collected so far).
@@ -58,11 +63,12 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 export async function POST(request: NextRequest) {
   const body = await request.json()
   // profile is client-supplied and trusted; add schema validation before production
-  const { message, sessionId, personaId, profile } = body as {
+  const { message, sessionId, personaId, profile, studentId } = body as {
     message: string
     sessionId: string
     personaId?: string
     profile?: Partial<StudentProfile>
+    studentId?: string
   }
 
   // Input guardrails
@@ -71,8 +77,20 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: inputCheck.reason }, { status: 400 })
   }
 
-  // Session setup
-  const session = getOrCreateSession(sessionId, personaId)
+  // Ensure conversation exists (sessionId is treated as conversationId)
+  let conv = getConversation(sessionId)
+  if (!conv) {
+    if (!studentId) {
+      return Response.json({ error: 'studentId required for new conversation' }, { status: 400 })
+    }
+    conv = createConversation(studentId, 'New conversation')
+  }
+
+  // Session setup (now DB-backed)
+  const session = getOrCreateSession(conv.id, personaId, conv.studentId)
+
+  // Persist user turn immediately so it survives errors mid-stream.
+  appendMessage({ conversationId: conv.id, role: 'user', content: message })
 
   // Apply client-provided profile (authoritative) or seed from persona on first message
   if (profile) {
@@ -178,20 +196,11 @@ export async function POST(request: NextRequest) {
         const retrievedDataStr = JSON.stringify({ rag, scorecard, onet })
         const outputCheck = checkOutputGuardrails(fullResponse, retrievedDataStr)
 
-        // Save to session
-        const userMsg: Message = { role: 'user', content: message, timestamp: Date.now() }
-        const assistantMsg: Message = {
+        // Persist assistant turn
+        appendMessage({
+          conversationId: conv.id,
           role: 'assistant',
           content: outputCheck.response,
-          timestamp: Date.now(),
-        }
-
-        updateSession(sessionId, {
-          conversationHistory: [...session.conversationHistory, userMsg, assistantMsg],
-          priorRecommendations: [
-            ...session.priorRecommendations,
-            ...rag.map((r) => r.school.name),
-          ],
         })
 
         controller.close()

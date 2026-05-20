@@ -2,7 +2,7 @@
 PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 
-CREATE TABLE students (
+CREATE TABLE IF NOT EXISTS students (
   id TEXT PRIMARY KEY,
   displayName TEXT NOT NULL,
   personaId TEXT,
@@ -11,20 +11,20 @@ CREATE TABLE students (
   createdAt INTEGER NOT NULL
 );
 
-CREATE TABLE adults (
+CREATE TABLE IF NOT EXISTS adults (
   id TEXT PRIMARY KEY,
   displayName TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('parent','counselor','other')),
   createdAt INTEGER NOT NULL
 );
 
-CREATE TABLE student_profiles (
+CREATE TABLE IF NOT EXISTS student_profiles (
   studentId TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
   profileJson TEXT NOT NULL,
   updatedAt INTEGER NOT NULL
 );
 
-CREATE TABLE links (
+CREATE TABLE IF NOT EXISTS links (
   id TEXT PRIMARY KEY,
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   adultId TEXT NOT NULL REFERENCES adults(id) ON DELETE CASCADE,
@@ -34,7 +34,7 @@ CREATE TABLE links (
   UNIQUE (studentId, adultId)
 );
 
-CREATE TABLE conversations (
+CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -43,9 +43,9 @@ CREATE TABLE conversations (
   lastMessageAt INTEGER NOT NULL,
   createdAt INTEGER NOT NULL
 );
-CREATE INDEX idx_conversations_student ON conversations(studentId, lastMessageAt DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_student ON conversations(studentId, lastMessageAt DESC);
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
   conversationId TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user','assistant','system')),
@@ -56,36 +56,36 @@ CREATE TABLE messages (
   rubricScoreJson TEXT,
   timestamp INTEGER NOT NULL
 );
-CREATE INDEX idx_messages_conv ON messages(conversationId, timestamp);
+CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversationId, timestamp);
 
-CREATE TABLE adult_conversations (
+CREATE TABLE IF NOT EXISTS adult_conversations (
   id TEXT PRIMARY KEY,
   adultId TEXT NOT NULL REFERENCES adults(id) ON DELETE CASCADE,
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   lastMessageAt INTEGER NOT NULL,
   createdAt INTEGER NOT NULL
 );
-CREATE INDEX idx_adult_conv ON adult_conversations(adultId, lastMessageAt DESC);
+CREATE INDEX IF NOT EXISTS idx_adult_conv ON adult_conversations(adultId, lastMessageAt DESC);
 
-CREATE TABLE adult_messages (
+CREATE TABLE IF NOT EXISTS adult_messages (
   id TEXT PRIMARY KEY,
   adultConvId TEXT NOT NULL REFERENCES adult_conversations(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user','assistant','system')),
   content TEXT NOT NULL,
   timestamp INTEGER NOT NULL
 );
-CREATE INDEX idx_adult_msg_conv ON adult_messages(adultConvId, timestamp);
+CREATE INDEX IF NOT EXISTS idx_adult_msg_conv ON adult_messages(adultConvId, timestamp);
 
-CREATE TABLE trust_events (
+CREATE TABLE IF NOT EXISTS trust_events (
   id TEXT PRIMARY KEY,
   messageId TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   payloadJson TEXT NOT NULL,
   createdAt INTEGER NOT NULL
 );
-CREATE INDEX idx_trust_msg ON trust_events(messageId);
+CREATE INDEX IF NOT EXISTS idx_trust_msg ON trust_events(messageId);
 
-CREATE TABLE share_tokens (
+CREATE TABLE IF NOT EXISTS share_tokens (
   token TEXT PRIMARY KEY,
   studentId TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   kind TEXT NOT NULL CHECK (kind IN ('parent','counselor','other')),
@@ -93,7 +93,7 @@ CREATE TABLE share_tokens (
   claimedByAdultId TEXT REFERENCES adults(id) ON DELETE SET NULL
 );
 
-CREATE TABLE eval_runs (
+CREATE TABLE IF NOT EXISTS eval_runs (
   id TEXT PRIMARY KEY,
   startedAt INTEGER NOT NULL,
   finishedAt INTEGER,
