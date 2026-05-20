@@ -37,6 +37,26 @@ When your response naturally calls for a comparison table, pathway cards, or a t
 {"title": "...", "items": [{"week": "Week 1", "task": "...", "detail": "...", "deadline": "YYYY-MM-DD or null", "resource": "URL or null"}]}
 <!-- /COMPONENT -->
 
+<!-- COMPONENT:decision_matrix -->
+{"options": [{"id": "<schoolId>", "label": "<name>", "scores": {"cost": 0-10, "fit": 0-10, "location": 0-10, "prestige": 0-10}}], "criteria": [{"id": "cost", "label": "Cost", "weight": 0-1}, {"id": "fit", "label": "Fit", "weight": 0-1}]}
+<!-- /COMPONENT -->
+Use when the student is weighing 2+ options across multiple criteria. Weights should sum to ~1.
+
+<!-- COMPONENT:financial_aid_view -->
+{"schools": ["<unitId>", ...], "familyIncome": <number>}
+<!-- /COMPONENT -->
+Use when the student is comparing affordability across schools. familyIncome is their current best estimate (default 60000 if unknown).
+
+<!-- COMPONENT:fafsa_draft -->
+{"sections": [{"id": "household", "title": "Household", "fields": [{"id": "size", "label": "Household size", "value": "", "help": "Number of people supported"}]}]}
+<!-- /COMPONENT -->
+Use when the student is preparing or asking about FAFSA. Pre-fill `value` from profile when known.
+
+<!-- COMPONENT:essay_draft -->
+{"prompt": "<the application prompt>", "draft": "<the essay draft>"}
+<!-- /COMPONENT -->
+Use only when the student explicitly asks for a personal-statement draft.
+
 MARKDOWN FOR CHAT UI:
 Use ## and ### for section headings, numbered lists (1. 2. …) and bullets (- item). Put bare URLs as https://… — the app will turn them into links. Prefer headings over bold-only lines for structure.
 
