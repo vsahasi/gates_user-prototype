@@ -11,9 +11,17 @@ import {
 } from '@/lib/db/queries'
 
 export async function GET() {
-  runMigrations()
-  const students = listStudents()
-  return NextResponse.json({ students })
+  try {
+    runMigrations()
+    const students = listStudents()
+    return NextResponse.json({ students })
+  } catch (err) {
+    console.error('[identity GET] failed:', err)
+    return NextResponse.json(
+      { error: 'Could not load identities. Restart the dev server.' },
+      { status: 500 },
+    )
+  }
 }
 
 type Body =
@@ -23,40 +31,48 @@ type Body =
   | { role: 'adult'; existingId: string }
 
 export async function POST(req: Request) {
-  runMigrations()
-  const body = (await req.json()) as Body
+  try {
+    runMigrations()
+    const body = (await req.json()) as Body
 
-  let id: string
-  let role: 'student' | 'adult'
+    let id: string
+    let role: 'student' | 'adult'
 
-  if (body.role === 'student') {
-    role = 'student'
-    if ('existingId' in body) {
-      const s = getStudent(body.existingId)
-      if (!s) return NextResponse.json({ error: 'not found' }, { status: 404 })
-      id = s.id
+    if (body.role === 'student') {
+      role = 'student'
+      if ('existingId' in body) {
+        const s = getStudent(body.existingId)
+        if (!s) return NextResponse.json({ error: 'not found' }, { status: 404 })
+        id = s.id
+      } else {
+        const s = createStudent({ displayName: body.displayName, personaId: body.personaId })
+        id = s.id
+      }
     } else {
-      const s = createStudent({ displayName: body.displayName, personaId: body.personaId })
-      id = s.id
+      role = 'adult'
+      if ('existingId' in body) {
+        const a = getAdult(body.existingId)
+        if (!a) return NextResponse.json({ error: 'not found' }, { status: 404 })
+        id = a.id
+      } else {
+        const a = createAdult({ displayName: body.displayName, kind: body.kind })
+        id = a.id
+      }
     }
-  } else {
-    role = 'adult'
-    if ('existingId' in body) {
-      const a = getAdult(body.existingId)
-      if (!a) return NextResponse.json({ error: 'not found' }, { status: 404 })
-      id = a.id
-    } else {
-      const a = createAdult({ displayName: body.displayName, kind: body.kind })
-      id = a.id
-    }
+
+    const jar = await cookies()
+    jar.set('pw_identity', JSON.stringify({ id, role }), {
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    })
+    return NextResponse.json({ id, role })
+  } catch (err) {
+    console.error('[identity POST] failed:', err)
+    return NextResponse.json(
+      { error: (err as Error).message ?? 'Could not create identity' },
+      { status: 500 },
+    )
   }
-
-  const jar = await cookies()
-  jar.set('pw_identity', JSON.stringify({ id, role }), {
-    httpOnly: false,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  })
-  return NextResponse.json({ id, role })
 }

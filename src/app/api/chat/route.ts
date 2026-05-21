@@ -70,6 +70,28 @@ const CAREER_INTENTS: ReadonlySet<IntentCategory> = new Set([
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: NextRequest) {
+  try {
+    return await handle(request)
+  } catch (err) {
+    // Pre-stream errors (DB hiccups, JSON parse, etc.) — return a useful
+    // streaming response so the browser doesn't just see a silent 500.
+    console.error('[chat] handler failed before stream:', err)
+    const encoder = new TextEncoder()
+    const errorMsg =
+      'Something went wrong setting up that turn. Try refreshing the page (Cmd+Shift+R) and sending it again.'
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(errorMsg))
+          controller.close()
+        },
+      }),
+      { headers: { 'Content-Type': 'text/plain; charset=utf-8' } },
+    )
+  }
+}
+
+async function handle(request: NextRequest) {
   runMigrations()
   const body = await request.json()
   // profile is client-supplied and trusted; add schema validation before production
