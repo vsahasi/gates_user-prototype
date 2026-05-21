@@ -9,12 +9,14 @@ import {
   listConversations,
   listMessages,
 } from '@/lib/db/queries'
+import { runMigrations } from '@/lib/db'
 
 export default async function StudentConv({
   params,
 }: {
   params: Promise<{ studentId: string; conversationId: string }>
 }) {
+  runMigrations()
   const { studentId, conversationId } = await params
   const student = getStudent(studentId)
   const conv = getConversation(conversationId)

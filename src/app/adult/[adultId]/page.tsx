@@ -3,12 +3,14 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import { getAdult, listLinksForAdult, getStudent } from '@/lib/db/queries'
+import { runMigrations } from '@/lib/db'
 
 export default async function AdultHome({
   params,
 }: {
   params: Promise<{ adultId: string }>
 }) {
+  runMigrations()
   const { adultId } = await params
   const a = getAdult(adultId)
   if (!a) redirect('/')

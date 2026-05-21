@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import { buildStudentPlan } from '@/lib/orchestration/plan'
 import { getStudent } from '@/lib/db/queries'
+import { runMigrations } from '@/lib/db'
 import type { Phase, PlanSelectionGroup, PlanDraft, PlanQuestion, PlanConversationIndex } from '@/lib/orchestration/plan'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -314,10 +315,12 @@ export default async function StudentPlanPage({
 }: {
   params: Promise<{ studentId: string }>
 }) {
+  runMigrations()
   const { studentId } = await params
   const student = getStudent(studentId)
   if (!student) redirect('/')
-  const plan = buildStudentPlan(studentId)!
+  const plan = buildStudentPlan(studentId)
+  if (!plan) redirect('/')
 
   const lastActivity = plan.lastActivityAt ? relativeTime(plan.lastActivityAt) : null
 
