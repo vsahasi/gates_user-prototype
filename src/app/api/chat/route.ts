@@ -69,6 +69,32 @@ const CAREER_INTENTS: ReadonlySet<IntentCategory> = new Set([
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+/**
+ * Race a promise against a wall-clock timeout. If the promise doesn't settle
+ * in `ms` milliseconds, resolves to `fallback` and logs which call timed out.
+ * Use this for any external API (Pinecone, Scorecard, O*NET, classifier) so
+ * one slow upstream can't freeze the whole chat turn.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => {
+      console.warn(`[chat] ${label} timed out after ${ms}ms — falling back`)
+      resolve(fallback)
+    }, ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        console.warn(`[chat] ${label} threw — falling back:`, (err as Error)?.message ?? err)
+        resolve(fallback)
+      },
+    )
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     return await handle(request)
@@ -135,11 +161,16 @@ async function handle(request: NextRequest) {
     }
   }
 
-  // Classify intent
-  const classification = await classifyIntent(message, session)
+  // Classify intent — 15s budget; falls back to general_question on timeout/error
+  const classification = await withTimeout(
+    classifyIntent(message, session),
+    15_000,
+    'classifyIntent',
+    { intent: 'general_question' as IntentCategory, extractedParams: {}, rewrittenQuery: message },
+  )
 
-  // Adaptive signals (tone is async; the others are pure)
-  const tone = await classifyTone(message)
+  // Adaptive signals — tone has its own try/catch already, but cap it too
+  const tone = await withTimeout(classifyTone(message), 8_000, 'classifyTone', 'calm' as const)
   const signals: Signals = {
     tone,
     readiness: computeReadiness({
@@ -160,30 +191,43 @@ async function handle(request: NextRequest) {
     updateStudentProfile(sessionId, { state: classification.extractedParams.state })
   }
 
-  // Parallel data retrieval
+  // Parallel data retrieval — each external call has its own 12-15s budget so
+  // a slow Pinecone or Scorecard can't hold the whole turn.
   const [ragResults, scorecardData, onetData] = await Promise.allSettled([
-    // RAG — always query for school context when relevant
     SCHOOL_DATA_INTENTS.has(classification.intent)
-      ? ragService.query({
-          state: classification.extractedParams.state ?? session.studentProfile.state ?? undefined,
-          cipCodes: classification.extractedParams.cipCodes,
-        })
+      ? withTimeout(
+          ragService.query({
+            state: classification.extractedParams.state ?? session.studentProfile.state ?? undefined,
+            cipCodes: classification.extractedParams.cipCodes,
+          }),
+          12_000,
+          'rag.query',
+          [],
+        )
       : Promise.resolve([]),
 
-    // Scorecard — for comparison/recommendation
     SCORECARD_INTENTS.has(classification.intent) && process.env.COLLEGE_SCORECARD_API_KEY
-      ? createScorecardService().searchInstitutions({
-          state: classification.extractedParams.state ?? session.studentProfile.state ?? undefined,
-          cipCode: classification.extractedParams.cipCodes?.[0],
-          perPage: 3,
-        })
+      ? withTimeout(
+          createScorecardService().searchInstitutions({
+            state: classification.extractedParams.state ?? session.studentProfile.state ?? undefined,
+            cipCode: classification.extractedParams.cipCodes?.[0],
+            perPage: 3,
+          }),
+          15_000,
+          'scorecard.searchInstitutions',
+          [],
+        )
       : Promise.resolve([]),
 
-    // O*NET — for career exploration
     CAREER_INTENTS.has(classification.intent) && process.env.ONET_API_KEY
-      ? createONETService().searchOccupationsEnriched(
-          session.studentProfile.interests.join(' ') || message,
-          3
+      ? withTimeout(
+          createONETService().searchOccupationsEnriched(
+            session.studentProfile.interests.join(' ') || message,
+            3,
+          ),
+          15_000,
+          'onet.searchOccupationsEnriched',
+          [],
         )
       : Promise.resolve([]),
   ])
