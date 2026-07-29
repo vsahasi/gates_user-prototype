@@ -31,12 +31,14 @@ import type { IntentCategory, StudentProfile } from '@/lib/types'
 // allow well past the platform default so long answers aren't cut off.
 export const maxDuration = 300
 
+// personaId/studentId are nullish (not just optional): clients send explicit
+// null for students created without a persona.
 const RequestBodySchema = z.object({
   message: z.string().min(1).max(4000),
   sessionId: z.string().min(1).max(200),
-  personaId: z.string().max(100).optional(),
+  personaId: z.string().max(100).nullish(),
   profile: StudentProfileSchema.optional(),
-  studentId: z.string().max(100).optional(),
+  studentId: z.string().max(100).nullish(),
   workbenchState: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -111,9 +113,12 @@ async function handle(request: NextRequest) {
   const raw = await request.json().catch(() => null)
   const parsedBody = RequestBodySchema.safeParse(raw)
   if (!parsedBody.success) {
+    console.warn('[chat] invalid body:', JSON.stringify(parsedBody.error.issues.slice(0, 5)))
     return Response.json({ error: 'invalid request body' }, { status: 400 })
   }
-  const { message, sessionId, personaId, studentId, workbenchState } = parsedBody.data
+  const { message, sessionId, workbenchState } = parsedBody.data
+  const personaId = parsedBody.data.personaId ?? undefined
+  const studentId = parsedBody.data.studentId ?? undefined
   const profile = parsedBody.data.profile as Partial<StudentProfile> | undefined
 
   // Input guardrails
