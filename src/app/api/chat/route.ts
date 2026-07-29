@@ -2,9 +2,10 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
+import { StudentProfileSchema } from '@/lib/validation/student-profile'
 import { getOrCreateSession, updateStudentProfile, setStudentProfile } from '@/lib/orchestration/session'
 import { runMigrations } from '@/lib/db'
-import { appendMessage, getConversation, createConversation } from '@/lib/db/queries'
+import { appendMessage, getConversation, createConversation, createStudent } from '@/lib/db/queries'
 import { classifyTone } from '@/lib/adaptive/tone'
 import { extractCitations, stripCitations } from '@/lib/orchestration/citation-extractor'
 import { parseStructuredComponentMessage } from '@/lib/chat/structured-component'
@@ -26,29 +27,17 @@ import { createONETService } from '@/lib/services/onet'
 import { getPersonaById } from '@/lib/data/personas'
 import type { IntentCategory, StudentProfile } from '@/lib/types'
 
-// Mirrors StudentProfile in src/lib/types.ts. All fields optional because the
-// client sends a partial profile (only the fields it has collected so far).
-const StudentProfileSchema = z.object({
-  grade: z.number().int().min(1).max(16).nullable(),
-  state: z.string().length(2).nullable(),
-  interests: z.array(z.string().max(200)).max(50),
-  gpa: z.number().min(0).max(5).nullable(),
-  financialInfo: z.object({
-    incomeRange: z.string().max(100).nullable(),
-    pellEligible: z.boolean().nullable(),
-    hasParentalSupport: z.boolean().nullable(),
-  }),
-  constraints: z.array(z.string().max(200)).max(50),
-  specialCircumstances: z.array(z.string().max(200)).max(50),
-  goals: z.array(z.string().max(200)).max(50),
-  programInterests: z.array(z.string().max(200)).max(50),
-}).partial()
+// Streaming turn chains several model calls (tone, intent, chat, rubric);
+// allow well past the platform default so long answers aren't cut off.
+export const maxDuration = 300
 
 const RequestBodySchema = z.object({
   message: z.string().min(1).max(4000),
   sessionId: z.string().min(1).max(200),
   personaId: z.string().max(100).optional(),
   profile: StudentProfileSchema.optional(),
+  studentId: z.string().max(100).optional(),
+  workbenchState: z.record(z.string(), z.unknown()).optional(),
 })
 
 // Which intents trigger each data source. ReadonlySet gives O(1) membership
@@ -118,17 +107,14 @@ export async function POST(request: NextRequest) {
 }
 
 async function handle(request: NextRequest) {
-  runMigrations()
-  const body = await request.json()
-  // profile is client-supplied and trusted; add schema validation before production
-  const { message, sessionId, personaId, profile, studentId, workbenchState } = body as {
-    message: string
-    sessionId: string
-    personaId?: string
-    profile?: Partial<StudentProfile>
-    studentId?: string
-    workbenchState?: Record<string, unknown>
+  await runMigrations()
+  const raw = await request.json().catch(() => null)
+  const parsedBody = RequestBodySchema.safeParse(raw)
+  if (!parsedBody.success) {
+    return Response.json({ error: 'invalid request body' }, { status: 400 })
   }
+  const { message, sessionId, personaId, studentId, workbenchState } = parsedBody.data
+  const profile = parsedBody.data.profile as Partial<StudentProfile> | undefined
 
   // Input guardrails
   const inputCheck = checkInputGuardrails(message)
@@ -136,28 +122,35 @@ async function handle(request: NextRequest) {
     return Response.json({ error: inputCheck.reason }, { status: 400 })
   }
 
-  // Ensure conversation exists (sessionId is treated as conversationId)
-  let conv = getConversation(sessionId)
+  // Ensure conversation exists (sessionId is treated as conversationId).
+  // Reuse the client's sessionId as the conversation id so follow-up posts
+  // with the same sessionId land in the same conversation.
+  let conv = await getConversation(sessionId)
   if (!conv) {
-    if (!studentId) {
-      return Response.json({ error: 'studentId required for new conversation' }, { status: 400 })
+    let ownerId = studentId
+    if (!ownerId) {
+      // Standalone /chat/[sessionId] flow (persona demo or "Start Fresh")
+      // arrives with no student — create one so the turn can proceed.
+      const persona = personaId ? getPersonaById(personaId) : undefined
+      const s = await createStudent({ displayName: persona?.name ?? 'Guest', personaId })
+      ownerId = s.id
     }
-    conv = createConversation(studentId, 'New conversation')
+    conv = await createConversation(ownerId, 'New conversation', sessionId)
   }
 
   // Session setup (now DB-backed)
-  const session = getOrCreateSession(conv.id, personaId, conv.studentId)
+  const session = await getOrCreateSession(conv.id, personaId, conv.studentId)
 
   // Persist user turn immediately so it survives errors mid-stream.
-  appendMessage({ conversationId: conv.id, role: 'user', content: message })
+  await appendMessage({ conversationId: conv.id, role: 'user', content: message })
 
   // Apply client-provided profile (authoritative) or seed from persona on first message
   if (profile) {
-    setStudentProfile(sessionId, profile)
+    await setStudentProfile(sessionId, profile)
   } else if (personaId && session.conversationHistory.length === 0) {
     const persona = getPersonaById(personaId)
     if (persona?.initialProfile) {
-      updateStudentProfile(sessionId, persona.initialProfile as Parameters<typeof updateStudentProfile>[1])
+      await updateStudentProfile(sessionId, persona.initialProfile as Parameters<typeof updateStudentProfile>[1])
     }
   }
 
@@ -188,7 +181,7 @@ async function handle(request: NextRequest) {
 
   // Update profile with extracted params
   if (!profile && classification.extractedParams.state) {
-    updateStudentProfile(sessionId, { state: classification.extractedParams.state })
+    await updateStudentProfile(sessionId, { state: classification.extractedParams.state })
   }
 
   // Parallel data retrieval — each external call has its own 12-15s budget so
@@ -269,6 +262,27 @@ async function handle(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      // The client can disconnect mid-stream (tab closed, navigation) which
+      // makes enqueue/close throw. Swallow those so the assistant turn still
+      // gets persisted below.
+      let clientGone = false
+      const safeEnqueue = (chunk: Uint8Array) => {
+        if (clientGone) return
+        try {
+          controller.enqueue(chunk)
+        } catch {
+          clientGone = true
+        }
+      }
+      const safeClose = () => {
+        if (clientGone) return
+        clientGone = true
+        try {
+          controller.close()
+        } catch {
+          /* already closed */
+        }
+      }
       try {
         const claudeStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
@@ -280,7 +294,7 @@ async function handle(request: NextRequest) {
         for await (const chunk of claudeStream) {
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
             fullResponse += chunk.delta.text
-            controller.enqueue(encoder.encode(chunk.delta.text))
+            safeEnqueue(encoder.encode(chunk.delta.text))
           }
         }
 
@@ -288,7 +302,7 @@ async function handle(request: NextRequest) {
         if (rag.length > 0) {
           const disclosure = formatDataVintageDisclosure(2024)
           fullResponse += disclosure
-          controller.enqueue(encoder.encode(disclosure))
+          safeEnqueue(encoder.encode(disclosure))
         }
 
         // Output guardrails
@@ -302,7 +316,7 @@ async function handle(request: NextRequest) {
         const visibleText = stripCitations(parsed.cleanText)
 
         // Persist assistant turn with structured component + signals + citations
-        const assistantRow = appendMessage({
+        const assistantRow = await appendMessage({
           conversationId: conv.id,
           role: 'assistant',
           content: visibleText,
@@ -320,9 +334,10 @@ async function handle(request: NextRequest) {
                 assistantResponse: visibleText,
               })
               if (score) {
-                getDb()
-                  .prepare(`UPDATE messages SET rubricScoreJson = ? WHERE id = ?`)
-                  .run(JSON.stringify(score), assistantRow.id)
+                await getDb().run(`UPDATE messages SET rubricScoreJson = ? WHERE id = ?`, [
+                  JSON.stringify(score),
+                  assistantRow.id,
+                ])
               }
             } catch {
               // Rubric scoring is best-effort.
@@ -330,7 +345,7 @@ async function handle(request: NextRequest) {
           })()
         }
 
-        controller.close()
+        safeClose()
       } catch (err) {
         const status = (err as { status?: number })?.status
         const overloaded = status === 529 || status === 503
@@ -338,8 +353,8 @@ async function handle(request: NextRequest) {
         const errorMsg = overloaded
           ? "\n\nThe advisor is briefly overloaded right now — that's on us, not you. Give it a minute and send the message again."
           : '\n\nSomething went wrong on our end. Please try again in a moment.'
-        controller.enqueue(encoder.encode(errorMsg))
-        controller.close()
+        safeEnqueue(encoder.encode(errorMsg))
+        safeClose()
       }
     },
   })

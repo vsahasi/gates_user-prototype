@@ -10,11 +10,14 @@ export default async function AdultHome({
 }: {
   params: Promise<{ adultId: string }>
 }) {
-  runMigrations()
+  await runMigrations()
   const { adultId } = await params
-  const a = getAdult(adultId)
+  const a = await getAdult(adultId)
   if (!a) redirect('/')
-  const links = listLinksForAdult(adultId)
+  const links = await listLinksForAdult(adultId)
+  const linkRows = await Promise.all(
+    links.map(async (l) => ({ link: l, student: await getStudent(l.studentId) })),
+  )
   return (
     <div className="min-h-screen bg-paper">
       <Header personaName={a.displayName} />
@@ -44,8 +47,7 @@ export default async function AdultHome({
           </div>
         ) : (
           <ul className="space-y-2">
-            {links.map((l) => {
-              const s = getStudent(l.studentId)
+            {linkRows.map(({ link: l, student: s }) => {
               if (!s) return null
               return (
                 <li key={l.id}>

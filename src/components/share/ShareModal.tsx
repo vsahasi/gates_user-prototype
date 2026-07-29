@@ -15,14 +15,25 @@ export function ShareModal({ studentId, onClose }: Props) {
 
   async function generate() {
     setBusy(true)
-    const res = await fetch('/api/share', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentId, kind, ttlMs: ttlDays * 24 * 60 * 60 * 1000 }),
-    })
-    const { token } = await res.json()
-    setLink(`${window.location.origin}/claim/${token}`)
-    setBusy(false)
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, kind, ttlMs: ttlDays * 24 * 60 * 60 * 1000 }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.token) {
+        setLink(null)
+        alert(j.error ?? 'Could not create the share link. Please try again.')
+        return
+      }
+      setLink(`${window.location.origin}/claim/${j.token}`)
+    } catch {
+      setLink(null)
+      alert('Could not reach the server. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

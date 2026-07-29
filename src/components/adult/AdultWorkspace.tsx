@@ -44,39 +44,51 @@ export function AdultWorkspace({ adult, student, summary, initialMessages = [] }
       { role: 'assistant', content: '', timestamp: Date.now() },
     ])
     setLoading(true)
-    const res = await fetch('/api/adult/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, adultId: adult.id, studentId: student.id }),
-    })
-    if (!res.ok) {
-      const j = await res.json()
+    try {
+      const res = await fetch('/api/adult/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, adultId: adult.id, studentId: student.id }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        setMessages((p) => {
+          const next = [...p]
+          next[next.length - 1] = {
+            role: 'assistant',
+            content: j.error ?? 'Something went wrong. Please try again.',
+            timestamp: Date.now(),
+          }
+          return next
+        })
+        return
+      }
+      const reader = res.body!.getReader()
+      const dec = new TextDecoder()
+      let acc = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        acc += dec.decode(value, { stream: true })
+        setMessages((p) => {
+          const next = [...p]
+          next[next.length - 1] = { role: 'assistant', content: acc, timestamp: Date.now() }
+          return next
+        })
+      }
+    } catch {
       setMessages((p) => {
         const next = [...p]
         next[next.length - 1] = {
           role: 'assistant',
-          content: j.error ?? 'Error',
+          content: 'Connection error. Check your internet and try again.',
           timestamp: Date.now(),
         }
         return next
       })
+    } finally {
       setLoading(false)
-      return
     }
-    const reader = res.body!.getReader()
-    const dec = new TextDecoder()
-    let acc = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      acc += dec.decode(value, { stream: true })
-      setMessages((p) => {
-        const next = [...p]
-        next[next.length - 1] = { role: 'assistant', content: acc, timestamp: Date.now() }
-        return next
-      })
-    }
-    setLoading(false)
   }
 
   const hasAnyContext =
@@ -253,9 +265,9 @@ export function AdultWorkspace({ adult, student, summary, initialMessages = [] }
           {messages.map((m, i) => (
             <MessageBubble key={i} message={m} />
           ))}
-          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
-            <TypingIndicator />
-          )}
+          {isLoading &&
+            messages[messages.length - 1]?.role === 'assistant' &&
+            !messages[messages.length - 1].content && <TypingIndicator />}
         </div>
 
         <ChatInput onSend={send} disabled={isLoading} />

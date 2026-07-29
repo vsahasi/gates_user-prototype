@@ -34,8 +34,8 @@ export interface PinnedSummary {
 // chats sees the new context, long enough to avoid recomputing every page load.
 const STALE_MS = 5 * 60 * 1000
 
-export function getPinnedSummary(studentId: string): PinnedSummary | null {
-  const s = getStudent(studentId)
+export async function getPinnedSummary(studentId: string): Promise<PinnedSummary | null> {
+  const s = await getStudent(studentId)
   if (!s) return null
   type StudentRow = { pinnedSummaryJson?: string | null; summaryUpdatedAt?: number | null }
   const row = s as unknown as StudentRow
@@ -48,11 +48,11 @@ export function getPinnedSummary(studentId: string): PinnedSummary | null {
     // Cache from an older schema — recompute. (`recentExchanges` was added in
     // the bug-fix pass; treat its absence as the version sentinel.)
     if (!Array.isArray(cached.recentExchanges)) {
-      return refreshPinnedSummary(studentId)
+      return await refreshPinnedSummary(studentId)
     }
     return cached as PinnedSummary
   }
-  return refreshPinnedSummary(studentId)
+  return await refreshPinnedSummary(studentId)
 }
 
 function truncate(s: string, n: number): string {
@@ -60,15 +60,17 @@ function truncate(s: string, n: number): string {
   return s.slice(0, n - 1).trimEnd() + '…'
 }
 
-export function refreshPinnedSummary(studentId: string): PinnedSummary {
-  const profile = getStudentProfile(studentId)
-  const convs = listConversations(studentId)
+export async function refreshPinnedSummary(studentId: string): Promise<PinnedSummary> {
+  const profile = await getStudentProfile(studentId)
+  const convs = await listConversations(studentId)
 
   // Build conversation index with message counts (cheap; 1 query per conv)
-  const convMeta = convs.map((c: Conversation) => {
-    const msgs = listMessages(c.id)
-    return { conv: c, msgs }
-  })
+  const convMeta = await Promise.all(
+    convs.map(async (c: Conversation) => {
+      const msgs = await listMessages(c.id)
+      return { conv: c, msgs }
+    })
+  )
 
   // Pull the most recent 3 user→assistant exchange pairs across all conversations.
   const exchanges: RecentExchange[] = []
@@ -122,8 +124,9 @@ export function refreshPinnedSummary(studentId: string): PinnedSummary {
       : 'No conversations yet.',
     generatedAt: Date.now(),
   }
-  getDb()
-    .prepare(`UPDATE students SET pinnedSummaryJson = ?, summaryUpdatedAt = ? WHERE id = ?`)
-    .run(JSON.stringify(summary), summary.generatedAt, studentId)
+  await getDb().run(
+    `UPDATE students SET pinnedSummaryJson = ?, summaryUpdatedAt = ? WHERE id = ?`,
+    [JSON.stringify(summary), summary.generatedAt, studentId]
+  )
   return summary
 }

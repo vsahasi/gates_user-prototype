@@ -15,37 +15,47 @@ export function IdentityPicker({ role }: { role: 'student' | 'adult' }) {
   const [displayName, setDisplayName] = useState('')
   const [kind, setKind] = useState<'parent' | 'counselor' | 'other'>('parent')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (role !== 'student') return
     fetch('/api/identity')
-      .then((r) => r.json())
-      .then((j) => setExisting(j.students))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => setExisting(Array.isArray(j.students) ? j.students : []))
+      .catch(() => setExisting([]))
   }, [role])
 
-  async function pickExisting(id: string) {
+  async function submitIdentity(body: Record<string, unknown>) {
     setBusy(true)
-    const res = await fetch('/api/identity', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, existingId: id }),
-    })
-    const { id: newId, role: newRole } = await res.json()
-    router.push(newRole === 'student' ? `/student/${newId}` : `/adult/${newId}`)
+    setError(null)
+    try {
+      const res = await fetch('/api/identity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.id) {
+        setError(j.error ?? 'Something went wrong creating your profile. Please try again.')
+        setBusy(false)
+        return
+      }
+      router.push(j.role === 'student' ? `/student/${j.id}` : `/adult/${j.id}`)
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.')
+      setBusy(false)
+    }
   }
 
-  async function createNew() {
+  function pickExisting(id: string) {
+    void submitIdentity({ role, existingId: id })
+  }
+
+  function createNew() {
     if (!displayName.trim()) return
-    setBusy(true)
-    const body =
-      role === 'student' ? { role, displayName } : { role, displayName, kind }
-    const res = await fetch('/api/identity', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const { id, role: newRole } = await res.json()
-    router.push(newRole === 'student' ? `/student/${id}` : `/adult/${id}`)
+    void submitIdentity(
+      role === 'student' ? { role, displayName } : { role, displayName, kind },
+    )
   }
 
   const roleWord = role === 'student' ? 'student' : 'caring adult'
@@ -126,6 +136,11 @@ export function IdentityPicker({ role }: { role: 'student' | 'adult' }) {
           Continue
           <span className="font-display italic text-[15px] opacity-80">→</span>
         </button>
+        {error && (
+          <p role="alert" className="text-[13px] leading-relaxed text-red-700">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   )

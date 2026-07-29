@@ -9,20 +9,20 @@ import {
   createConversation,
 } from '@/lib/db/queries'
 
-export function getOrCreateSession(
+export async function getOrCreateSession(
   sessionId: string,
   personaId?: string,
   studentId?: string,
-): SessionState {
-  let conv = getConversation(sessionId)
+): Promise<SessionState> {
+  let conv = await getConversation(sessionId)
   if (!conv) {
     if (!studentId) {
       throw new Error('Cannot create session without studentId')
     }
-    conv = createConversation(studentId, 'New conversation')
+    conv = await createConversation(studentId, 'New conversation')
   }
-  const profile = getStudentProfile(conv.studentId) ?? { ...DEFAULT_PROFILE }
-  const messages = listMessages(conv.id)
+  const profile = (await getStudentProfile(conv.studentId)) ?? { ...DEFAULT_PROFILE }
+  const messages = await listMessages(conv.id)
   const conversationHistory: Message[] = messages.map((m) => ({
     role: m.role === 'system' ? 'assistant' : (m.role as 'user' | 'assistant'),
     content: m.content,
@@ -39,25 +39,28 @@ export function getOrCreateSession(
   }
 }
 
-export function setStudentProfile(sessionId: string, profile: Partial<StudentProfile>): void {
-  const conv = getConversation(sessionId)
+export async function setStudentProfile(
+  sessionId: string,
+  profile: Partial<StudentProfile>,
+): Promise<void> {
+  const conv = await getConversation(sessionId)
   if (!conv) return
-  const current = getStudentProfile(conv.studentId) ?? { ...DEFAULT_PROFILE }
+  const current = (await getStudentProfile(conv.studentId)) ?? { ...DEFAULT_PROFILE }
   const next: StudentProfile = {
     ...current,
     ...profile,
     financialInfo: { ...current.financialInfo, ...(profile.financialInfo ?? {}) },
   }
-  upsertStudentProfile(conv.studentId, next)
+  await upsertStudentProfile(conv.studentId, next)
 }
 
-export function updateStudentProfile(
+export async function updateStudentProfile(
   sessionId: string,
   updates: Partial<StudentProfile>,
-): void {
-  const conv = getConversation(sessionId)
+): Promise<void> {
+  const conv = await getConversation(sessionId)
   if (!conv) return
-  const current = getStudentProfile(conv.studentId) ?? { ...DEFAULT_PROFILE }
+  const current = (await getStudentProfile(conv.studentId)) ?? { ...DEFAULT_PROFILE }
   const merged: StudentProfile = {
     ...current,
     ...updates,
@@ -70,11 +73,11 @@ export function updateStudentProfile(
     goals: Array.from(new Set([...(current.goals ?? []), ...(updates.goals ?? [])])),
     financialInfo: { ...current.financialInfo, ...(updates.financialInfo ?? {}) },
   }
-  upsertStudentProfile(conv.studentId, merged)
+  await upsertStudentProfile(conv.studentId, merged)
 }
 
-export function getSession(sessionId: string): SessionState | undefined {
-  const conv = getConversation(sessionId)
+export async function getSession(sessionId: string): Promise<SessionState | undefined> {
+  const conv = await getConversation(sessionId)
   if (!conv) return undefined
   return getOrCreateSession(sessionId)
 }

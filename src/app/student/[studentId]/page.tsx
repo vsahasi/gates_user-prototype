@@ -12,11 +12,11 @@ export default async function StudentEntry({
 }: {
   params: Promise<{ studentId: string }>
 }) {
-  runMigrations()
+  await runMigrations()
   const { studentId } = await params
-  const s = getStudent(studentId)
+  const s = await getStudent(studentId)
   if (!s) redirect('/')
-  const convs = listConversations(studentId)
-  const target = convs[0] ?? createConversation(studentId, 'First conversation')
+  const convs = await listConversations(studentId)
+  const target = convs[0] ?? await createConversation(studentId, 'First conversation')
   redirect(`/student/${studentId}/${target.id}`)
 }

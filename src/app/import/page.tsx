@@ -14,19 +14,24 @@ export default function ImportPage() {
     if (!file) return
     setBusy(true)
     setErr(null)
-    const text = await file.text()
-    const res = await fetch('/api/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: text,
-    })
-    const j = await res.json()
-    if (!res.ok) {
-      setErr(j.error)
+    try {
+      const text = await file.text()
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: text,
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.studentId) {
+        setErr(j.error ?? 'Could not restore that export. Check the file and try again.')
+        setBusy(false)
+        return
+      }
+      router.push(`/student/${j.studentId}`)
+    } catch {
+      setErr('Could not reach the server. Check your connection and try again.')
       setBusy(false)
-      return
     }
-    router.push(`/student/${j.studentId}`)
   }
 
   return (

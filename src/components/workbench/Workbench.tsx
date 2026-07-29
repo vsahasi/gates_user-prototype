@@ -54,10 +54,20 @@ function inferPhase(messages: DisplayMessage[]): Phase {
   return 'transition'
 }
 
+function safeParse<T>(s: string | null): T | undefined {
+  if (!s) return undefined
+  try {
+    return JSON.parse(s) as T
+  } catch {
+    return undefined
+  }
+}
+
 function renderStructuredComponent(
   component: StructuredComponent | undefined,
   onPatch: (slotKey: string, data: unknown) => void,
   messageKey: string,
+  workbenchState: Record<string, unknown>,
   selectedUnitIds: Set<string>,
   selectedPathwayIds: Set<string>,
   onToggleSchool: (school: import('@/lib/types').School) => void,
@@ -67,6 +77,7 @@ function renderStructuredComponent(
   if (!component) return null
   if (component.type === 'comparison_table') {
     const data = component.data as ComparisonTableData
+    if (!Array.isArray(data.schools)) return null
     const schools = (data.schools as unknown as string[])
       .map((id) => SCHOOLS.find((s) => s.unitId === id))
       .filter(Boolean) as typeof SCHOOLS
@@ -93,17 +104,27 @@ function renderStructuredComponent(
     return <TimelineChecklist data={component.data as TimelineChecklistData} />
   }
   if (component.type === 'decision_matrix') {
+    const saved = workbenchState[`${messageKey}:decision_matrix`]
+    const data = {
+      ...(component.data as DecisionMatrixData),
+      ...(saved && typeof saved === 'object' ? (saved as Partial<DecisionMatrixData>) : {}),
+    }
     return (
       <DecisionMatrix
-        data={component.data as DecisionMatrixData}
+        data={data}
         onChange={(next) => onPatch(`${messageKey}:decision_matrix`, next)}
       />
     )
   }
   if (component.type === 'financial_aid_view') {
+    const saved = workbenchState[`${messageKey}:financial_aid_view`]
+    const data = {
+      ...(component.data as FinancialAidViewData),
+      ...(saved && typeof saved === 'object' ? (saved as Partial<FinancialAidViewData>) : {}),
+    }
     return (
       <FinancialAidView
-        data={component.data as FinancialAidViewData}
+        data={data}
         onChange={(next) => onPatch(`${messageKey}:financial_aid_view`, next)}
       />
     )
@@ -147,25 +168,25 @@ export function Workbench({
       role: m.role === 'system' ? 'assistant' : (m.role as 'user' | 'assistant'),
       content: m.content,
       timestamp: m.timestamp,
-      structuredComponent: m.structuredComponentJson
-        ? (JSON.parse(m.structuredComponentJson) as StructuredComponent)
-        : undefined,
-      citations: m.citationsJson ? JSON.parse(m.citationsJson) : undefined,
-      rubricOverall: m.rubricScoreJson
-        ? (JSON.parse(m.rubricScoreJson) as { overall?: number }).overall ?? null
-        : null,
-      signals: m.signalsJson ? JSON.parse(m.signalsJson) : undefined,
+      structuredComponent: safeParse<StructuredComponent>(m.structuredComponentJson),
+      citations: safeParse<Array<{ index: number; source: string }>>(m.citationsJson),
+      rubricOverall:
+        safeParse<{ overall?: number }>(m.rubricScoreJson)?.overall ?? null,
+      signals: safeParse<import('@/lib/adaptive/signals').Signals>(m.signalsJson),
     })),
   )
   const [isLoading, setIsLoading] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
-  const [workbenchState, setWorkbenchState] = useState<Record<string, unknown>>(() =>
-    conversation.workbenchStateJson ? JSON.parse(conversation.workbenchStateJson) : {},
+  const [workbenchState, setWorkbenchState] = useState<Record<string, unknown>>(
+    () => safeParse<Record<string, unknown>>(conversation.workbenchStateJson) ?? {},
   )
   const [selections, setSelections] = useState<StudentSelection[]>([])
   const [inputValue, setInputValue] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputAreaRef = useRef<HTMLDivElement>(null)
+  const workbenchStateRef = useRef(workbenchState)
+  const patchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const newConvInFlight = useRef(false)
   const currentPhase = inferPhase(messages)
 
   function prefillInput(text: string) {
@@ -181,20 +202,27 @@ export function Workbench({
   }
 
   const patchWorkbench = useCallback(
-    async (slotKey: string, data: unknown) => {
-      const next = { ...workbenchState, [slotKey]: data }
-      setWorkbenchState(next)
-      try {
-        await fetch(`/api/conversations/${conversation.id}/workbench`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(next),
-        })
-      } catch {
-        // Non-critical; the next page load will re-read from server.
-      }
+    (slotKey: string, data: unknown) => {
+      setWorkbenchState((prev) => {
+        const next = { ...prev, [slotKey]: data }
+        workbenchStateRef.current = next
+        return next
+      })
+      // Debounce the PATCH (trailing 400ms) so slider drags don't flood the server.
+      if (patchTimerRef.current) clearTimeout(patchTimerRef.current)
+      patchTimerRef.current = setTimeout(async () => {
+        try {
+          await fetch(`/api/conversations/${conversation.id}/workbench`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workbenchStateRef.current),
+          })
+        } catch {
+          // Non-critical; the next page load will re-read from server.
+        }
+      }, 400)
     },
-    [workbenchState, conversation.id],
+    [conversation.id],
   )
 
   useEffect(() => {
@@ -210,17 +238,36 @@ export function Workbench({
     refLabel: string,
   ) {
     const existing = selections.find((s) => s.kind === kind && s.refId === refId)
-    if (existing) {
-      await fetch(`/api/student/${student.id}/selections?id=${existing.id}`, { method: 'DELETE' })
-      setSelections((prev) => prev.filter((s) => s.id !== existing.id))
-    } else {
-      const res = await fetch(`/api/student/${student.id}/selections`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, refId, refLabel }),
-      })
-      const { selection } = await res.json()
-      setSelections((prev) => [selection, ...prev])
+    try {
+      if (existing) {
+        const res = await fetch(`/api/student/${student.id}/selections?id=${existing.id}`, {
+          method: 'DELETE',
+        })
+        if (!res.ok) {
+          console.error('Failed to remove selection:', res.status)
+          return
+        }
+        setSelections((prev) => prev.filter((s) => s.id !== existing.id))
+      } else {
+        const res = await fetch(`/api/student/${student.id}/selections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind, refId, refLabel }),
+        })
+        if (!res.ok) {
+          console.error('Failed to save selection:', res.status)
+          return
+        }
+        const body = (await res.json().catch(() => null)) as
+          | { selection?: StudentSelection }
+          | null
+        const selection = body?.selection
+        if (selection && typeof selection === 'object' && selection.id) {
+          setSelections((prev) => [selection, ...prev])
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle selection:', err)
     }
   }
 
@@ -310,19 +357,60 @@ export function Workbench({
         }
         return next
       })
+    } catch {
+      setMessages((p) => {
+        const next = [...p]
+        next[next.length - 1] = {
+          ...next[next.length - 1],
+          content: 'Connection error. Please check your internet and try again.',
+          isStreaming: false,
+        }
+        return next
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
   async function newConversation() {
-    const res = await fetch(`/api/student/${student.id}/conversations`, { method: 'POST' })
-    const { id } = await res.json()
-    router.push(`/student/${student.id}/${id}`)
+    if (newConvInFlight.current) return
+    newConvInFlight.current = true
+    try {
+      const res = await fetch(`/api/student/${student.id}/conversations`, { method: 'POST' })
+      if (!res.ok) {
+        console.error('Failed to create conversation:', res.status)
+        return
+      }
+      const { id } = await res.json()
+      if (typeof id === 'string' && id) {
+        router.push(`/student/${student.id}/${id}`)
+      } else {
+        console.error('Failed to create conversation: missing id')
+      }
+    } catch (err) {
+      console.error('Failed to create conversation:', err)
+    } finally {
+      newConvInFlight.current = false
+    }
+  }
+
+  function handleProfileChange(p: StudentProfile) {
+    setProfile(p)
+    // Fire-and-forget persistence; don't block the UI on the save.
+    fetch(`/api/student/${student.id}/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: p }),
+    })
+      .then((res) => {
+        if (!res.ok) console.error('Failed to save profile:', res.status)
+      })
+      .catch((err) => console.error('Failed to save profile:', err))
   }
 
   const phaseLabel = currentPhase[0].toUpperCase() + currentPhase.slice(1)
   const hasMessages = messages.length > 0
+  const lastMsg = messages[messages.length - 1]
   const onlyOpener = messages.length <= 1 && (messages[0]?.role === 'assistant' || !hasMessages)
 
   const suggestions = [
@@ -385,6 +473,7 @@ export function Workbench({
                   m.structuredComponent,
                   patchWorkbench,
                   `msg-${i}`,
+                  workbenchState,
                   selectedUnitIds,
                   selectedPathwayIds,
                   (school) => toggleSelection('school', school.unitId, school.name),
@@ -395,8 +484,9 @@ export function Workbench({
                 rubricOverall={m.rubricOverall}
               />
             ))}
-            {isLoading &&
-              messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
+            {lastMsg?.role === 'assistant' &&
+              lastMsg.isStreaming &&
+              !lastMsg.content && <TypingIndicator />}
             <div ref={bottomRef} />
 
             {onlyOpener && (
@@ -442,7 +532,7 @@ export function Workbench({
       </main>
       <RightRail
         profile={profile}
-        onProfileChange={setProfile}
+        onProfileChange={handleProfileChange}
         currentPhase={currentPhase}
         signals={
           [...messages].reverse().find((m) => m.role === 'assistant' && m.signals)?.signals

@@ -49,7 +49,7 @@ function PathwayCardItem({
   isSelected: boolean
   onToggleSelect?: (pathway: PathwayCard) => void
 }) {
-  const fit = FIT_CONFIG[pathway.fit]
+  const fit = FIT_CONFIG[pathway.fit] ?? FIT_CONFIG.medium
   const interactive = !!onToggleSelect
   return (
     <article

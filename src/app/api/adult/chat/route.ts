@@ -14,27 +14,41 @@ import { runMigrations } from '@/lib/db'
 import { getPinnedSummary } from '@/lib/orchestration/pinned-summary'
 import { currentDateDirective } from '@/lib/orchestration/prompt-builder'
 
+// Streaming turn; allow well past the platform default so long answers
+// aren't cut off on Vercel.
+export const maxDuration = 300
+
 export async function POST(req: Request) {
-  runMigrations()
-  const { message, adultId, studentId } = (await req.json()) as {
-    message: string
-    adultId: string
-    studentId: string
+  await runMigrations()
+  const body = (await req.json().catch(() => null)) as {
+    message?: unknown
+    adultId?: unknown
+    studentId?: unknown
+  } | null
+  const { message, adultId, studentId } = body ?? {}
+  if (
+    typeof message !== 'string' || !message.trim() || message.length > 4000 ||
+    typeof adultId !== 'string' || typeof studentId !== 'string'
+  ) {
+    return NextResponse.json(
+      { error: 'message (1-4000 chars), adultId, and studentId are required' },
+      { status: 400 },
+    )
   }
-  const adult = getAdult(adultId)
-  const student = getStudent(studentId)
+  const adult = await getAdult(adultId)
+  const student = await getStudent(studentId)
   if (!adult || !student) return NextResponse.json({ error: 'not found' }, { status: 404 })
-  const links = listLinksForAdult(adultId)
+  const links = await listLinksForAdult(adultId)
   if (!links.some((l) => l.studentId === studentId)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
   }
 
   // Ensure the adult↔student conversation row exists; persist the user turn.
-  const conv = getOrCreateAdultConversation(adultId, studentId)
-  appendAdultMessage({ adultConvId: conv.id, role: 'user', content: message })
+  const conv = await getOrCreateAdultConversation(adultId, studentId)
+  await appendAdultMessage({ adultConvId: conv.id, role: 'user', content: message })
 
-  const profile = getStudentProfile(studentId)
-  const summary = getPinnedSummary(studentId)
+  const profile = await getStudentProfile(studentId)
+  const summary = await getPinnedSummary(studentId)
 
   const role =
     adult.kind === 'counselor'
@@ -64,7 +78,7 @@ Never invent facts about the student. If asked about something not in the profil
 
   // Build full history for context. The user turn we just persisted is included
   // so the model sees its own latest instruction.
-  const history = listAdultMessages(conv.id).map((m) => ({
+  const history = (await listAdultMessages(conv.id)).map((m) => ({
     role: m.role === 'system' ? 'assistant' : (m.role as 'user' | 'assistant'),
     content: m.content,
   }))
@@ -75,6 +89,26 @@ Never invent facts about the student. If asked about something not in the profil
 
   const readable = new ReadableStream({
     async start(controller) {
+      // Client disconnects make enqueue/close throw — swallow those so the
+      // assistant turn still gets persisted.
+      let clientGone = false
+      const safeEnqueue = (chunk: Uint8Array) => {
+        if (clientGone) return
+        try {
+          controller.enqueue(chunk)
+        } catch {
+          clientGone = true
+        }
+      }
+      const safeClose = () => {
+        if (clientGone) return
+        clientGone = true
+        try {
+          controller.close()
+        } catch {
+          /* already closed */
+        }
+      }
       try {
         const stream = client.messages.stream({
           model: 'claude-sonnet-4-6',
@@ -85,14 +119,14 @@ Never invent facts about the student. If asked about something not in the profil
         for await (const event of stream) {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
             assistantText += event.delta.text
-            controller.enqueue(encoder.encode(event.delta.text))
+            safeEnqueue(encoder.encode(event.delta.text))
           }
         }
         // Persist the assistant turn after the stream completes.
         if (assistantText.trim()) {
-          appendAdultMessage({ adultConvId: conv.id, role: 'assistant', content: assistantText })
+          await appendAdultMessage({ adultConvId: conv.id, role: 'assistant', content: assistantText })
         }
-        controller.close()
+        safeClose()
       } catch (err) {
         const status = (err as { status?: number })?.status
         const overloaded = status === 529 || status === 503
@@ -100,8 +134,8 @@ Never invent facts about the student. If asked about something not in the profil
         const errorMsg = overloaded
           ? "\n\nThe advisor is briefly overloaded — try again in a minute."
           : '\n\nSomething went wrong. Please try again.'
-        controller.enqueue(encoder.encode(errorMsg))
-        controller.close()
+        safeEnqueue(encoder.encode(errorMsg))
+        safeClose()
       }
     },
   })

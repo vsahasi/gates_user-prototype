@@ -65,7 +65,31 @@ export async function classifyIntent(
   }
 
   try {
-    return JSON.parse(extractJson(text)) as IntentClassification
+    const parsed = JSON.parse(extractJson(text)) as Partial<IntentClassification>
+    // Haiku sometimes returns valid JSON with a wrong shape (missing
+    // extractedParams, unknown intent). Normalize so downstream property
+    // access can never crash the chat turn.
+    const VALID_INTENTS = new Set([
+      'profile_collection',
+      'career_exploration',
+      'program_comparison',
+      'pathway_recommendation',
+      'application_prep',
+      'general_question',
+    ])
+    return {
+      intent: (typeof parsed.intent === 'string' && VALID_INTENTS.has(parsed.intent)
+        ? parsed.intent
+        : 'general_question') as IntentClassification['intent'],
+      extractedParams:
+        parsed.extractedParams && typeof parsed.extractedParams === 'object'
+          ? parsed.extractedParams
+          : {},
+      rewrittenQuery:
+        typeof parsed.rewrittenQuery === 'string' && parsed.rewrittenQuery.trim()
+          ? parsed.rewrittenQuery
+          : message,
+    }
   } catch (err) {
     console.warn('[intent] JSON parse failed, defaulting to general_question. Raw Haiku output:', text.slice(0, 500), err)
     return defaultClassification(message)

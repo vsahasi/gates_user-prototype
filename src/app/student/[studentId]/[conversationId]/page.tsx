@@ -16,15 +16,15 @@ export default async function StudentConv({
 }: {
   params: Promise<{ studentId: string; conversationId: string }>
 }) {
-  runMigrations()
+  await runMigrations()
   const { studentId, conversationId } = await params
-  const student = getStudent(studentId)
-  const conv = getConversation(conversationId)
+  const student = await getStudent(studentId)
+  const conv = await getConversation(conversationId)
   if (!student || !conv || conv.studentId !== studentId) redirect('/')
 
-  const profile = getStudentProfile(studentId)!
-  const conversations = listConversations(studentId)
-  const messages = listMessages(conversationId)
+  const profile = (await getStudentProfile(studentId))!
+  const conversations = await listConversations(studentId)
+  const messages = await listMessages(conversationId)
 
   return (
     <div className="min-h-screen bg-background">

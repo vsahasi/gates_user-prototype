@@ -90,18 +90,20 @@ const KIND_ORDER: StudentSelection['kind'][] = ['school', 'pathway', 'major', 'c
 const QUESTION_RE = /\?\s*$/
 const QUESTION_START_RE = /^(how|what|should|can|do i|help me)\b/i
 
-export function buildStudentPlan(studentId: string): StudentPlan | null {
+export async function buildStudentPlan(studentId: string): Promise<StudentPlan | null> {
   // 1. Resolve the student
-  const student = getStudent(studentId)
+  const student = await getStudent(studentId)
   if (!student) return null
 
   // 2. Pull all conversations + messages
-  const conversations = listConversations(studentId)
-  type ConvMessages = { conv: Conversation; messages: ReturnType<typeof listMessages> }
-  const convMessages: ConvMessages[] = conversations.map((conv) => ({
-    conv,
-    messages: listMessages(conv.id),
-  }))
+  const conversations = await listConversations(studentId)
+  type ConvMessages = { conv: Conversation; messages: Awaited<ReturnType<typeof listMessages>> }
+  const convMessages: ConvMessages[] = await Promise.all(
+    conversations.map(async (conv) => ({
+      conv,
+      messages: await listMessages(conv.id),
+    }))
+  )
 
   // 3. Aggregate counts and last activity
   let totalMessages = 0
@@ -126,7 +128,7 @@ export function buildStudentPlan(studentId: string): StudentPlan | null {
   const progress = phaseProgress(currentPhase, userMessageCount)
 
   // 6. Selections grouped by kind
-  const allSelections = listSelections(studentId)
+  const allSelections = await listSelections(studentId)
   const selectionMap = new Map<StudentSelection['kind'], StudentSelection[]>()
   for (const sel of allSelections) {
     if (!selectionMap.has(sel.kind)) selectionMap.set(sel.kind, [])

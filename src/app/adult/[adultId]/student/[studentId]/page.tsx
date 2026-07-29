@@ -17,19 +17,19 @@ export default async function AdultStudent({
 }: {
   params: Promise<{ adultId: string; studentId: string }>
 }) {
-  runMigrations()
+  await runMigrations()
   const { adultId, studentId } = await params
-  const adult = getAdult(adultId)
-  const student = getStudent(studentId)
+  const adult = await getAdult(adultId)
+  const student = await getStudent(studentId)
   if (!adult || !student) redirect('/')
-  const links = listLinksForAdult(adultId)
+  const links = await listLinksForAdult(adultId)
   if (!links.some((l) => l.studentId === studentId)) redirect(`/adult/${adultId}`)
-  const summary = getPinnedSummary(studentId)!
+  const summary = (await getPinnedSummary(studentId))!
 
   // Eagerly create the adult↔student conversation row so the first POST has
   // a stable ID and so we can prefetch any prior history.
-  const conv = getOrCreateAdultConversation(adultId, studentId)
-  const priorMessages = listAdultMessages(conv.id)
+  const conv = await getOrCreateAdultConversation(adultId, studentId)
+  const priorMessages = await listAdultMessages(conv.id)
 
   return (
     <div className="min-h-screen bg-paper">

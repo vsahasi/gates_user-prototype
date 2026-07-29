@@ -15,18 +15,23 @@ export default function Claim() {
   async function submit() {
     setBusy(true)
     setErr(null)
-    const res = await fetch('/api/claim', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, adult: { displayName, kind } }),
-    })
-    const j = await res.json()
-    if (!res.ok) {
-      setErr(j.error)
+    try {
+      const res = await fetch('/api/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, adult: { displayName, kind } }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.adultId) {
+        setErr(j.error ?? 'Could not accept the invitation. Please try again.')
+        setBusy(false)
+        return
+      }
+      router.push(`/adult/${j.adultId}/student/${j.studentId}`)
+    } catch {
+      setErr('Could not reach the server. Check your connection and try again.')
       setBusy(false)
-      return
     }
-    router.push(`/adult/${j.adultId}/student/${j.studentId}`)
   }
 
   return (

@@ -1,18 +1,8 @@
 // src/lib/db/queries.ts
 import { nanoid } from 'nanoid'
-import { getDb, transact } from './index'
+import { getDb } from './index'
 import type { StudentProfile } from '@/lib/types'
 import { DEFAULT_PROFILE } from '@/lib/defaults'
-
-// node:sqlite returns rows with null prototypes. Next.js refuses to serialize
-// those across the server/client boundary, so we clone every row through this
-// helper before returning. Cheap; rows are small.
-function plain<T>(row: unknown): T {
-  return { ...(row as Record<string, unknown>) } as T
-}
-function plainAll<T>(rows: unknown[]): T[] {
-  return rows.map((r) => plain<T>(r))
-}
 
 export interface Student {
   id: string
@@ -67,70 +57,91 @@ export interface ShareToken {
   claimedByAdultId: string | null
 }
 
-export function createStudent(input: { displayName: string; personaId?: string }): Student {
+export async function createStudent(input: {
+  displayName: string
+  personaId?: string
+}): Promise<Student> {
   const s: Student = {
     id: nanoid(),
     displayName: input.displayName,
     personaId: input.personaId ?? null,
     createdAt: Date.now(),
   }
-  transact(() => {
-    const db = getDb()
-    db.prepare(
-      `INSERT INTO students (id, displayName, personaId, createdAt) VALUES (?, ?, ?, ?)`
-    ).run(s.id, s.displayName, s.personaId, s.createdAt)
-    db.prepare(
-      `INSERT INTO student_profiles (studentId, profileJson, updatedAt) VALUES (?, ?, ?)`
-    ).run(s.id, JSON.stringify(DEFAULT_PROFILE), s.createdAt)
-  })
+  await getDb().batch([
+    {
+      sql: `INSERT INTO students (id, displayName, personaId, createdAt) VALUES (?, ?, ?, ?)`,
+      params: [s.id, s.displayName, s.personaId, s.createdAt],
+    },
+    {
+      sql: `INSERT INTO student_profiles (studentId, profileJson, updatedAt) VALUES (?, ?, ?)`,
+      params: [s.id, JSON.stringify(DEFAULT_PROFILE), s.createdAt],
+    },
+  ])
   return s
 }
 
-export function listStudents(): Student[] {
-  return plainAll<Student>(
-    getDb().prepare(`SELECT * FROM students ORDER BY createdAt DESC`).all(),
+export async function listStudents(): Promise<Student[]> {
+  return getDb().all<Student>(`SELECT * FROM students ORDER BY createdAt DESC`)
+}
+
+export async function getStudent(id: string): Promise<Student | undefined> {
+  return getDb().get<Student>(`SELECT * FROM students WHERE id = ?`, [id])
+}
+
+export async function getStudentProfile(studentId: string): Promise<StudentProfile | null> {
+  const row = await getDb().get<{ profileJson: string }>(
+    `SELECT profileJson FROM student_profiles WHERE studentId = ?`,
+    [studentId],
+  )
+  if (!row) return null
+  try {
+    return JSON.parse(row.profileJson) as StudentProfile
+  } catch {
+    return null
+  }
+}
+
+export async function upsertStudentProfile(
+  studentId: string,
+  profile: StudentProfile,
+): Promise<void> {
+  // True upsert: students imported/created through older paths may lack a
+  // profile row, and an UPDATE alone would silently drop the write.
+  await getDb().run(
+    `INSERT INTO student_profiles (studentId, profileJson, updatedAt) VALUES (?, ?, ?)
+     ON CONFLICT(studentId) DO UPDATE SET profileJson = excluded.profileJson, updatedAt = excluded.updatedAt`,
+    [studentId, JSON.stringify(profile), Date.now()],
   )
 }
 
-export function getStudent(id: string): Student | undefined {
-  const row = getDb().prepare(`SELECT * FROM students WHERE id = ?`).get(id)
-  return row ? plain<Student>(row) : undefined
-}
-
-export function getStudentProfile(studentId: string): StudentProfile | null {
-  const row = getDb().prepare(
-    `SELECT profileJson FROM student_profiles WHERE studentId = ?`
-  ).get(studentId) as { profileJson: string } | undefined
-  return row ? (JSON.parse(row.profileJson) as StudentProfile) : null
-}
-
-export function upsertStudentProfile(studentId: string, profile: StudentProfile): void {
-  getDb().prepare(
-    `UPDATE student_profiles SET profileJson = ?, updatedAt = ? WHERE studentId = ?`
-  ).run(JSON.stringify(profile), Date.now(), studentId)
-}
-
-export function createAdult(input: { displayName: string; kind: 'parent' | 'counselor' | 'other' }): Adult {
+export async function createAdult(input: {
+  displayName: string
+  kind: 'parent' | 'counselor' | 'other'
+}): Promise<Adult> {
   const a: Adult = {
     id: nanoid(),
     displayName: input.displayName,
     kind: input.kind,
     createdAt: Date.now(),
   }
-  getDb().prepare(
-    `INSERT INTO adults (id, displayName, kind, createdAt) VALUES (?, ?, ?, ?)`
-  ).run(a.id, a.displayName, a.kind, a.createdAt)
+  await getDb().run(
+    `INSERT INTO adults (id, displayName, kind, createdAt) VALUES (?, ?, ?, ?)`,
+    [a.id, a.displayName, a.kind, a.createdAt],
+  )
   return a
 }
 
-export function getAdult(id: string): Adult | undefined {
-  const row = getDb().prepare(`SELECT * FROM adults WHERE id = ?`).get(id)
-  return row ? plain<Adult>(row) : undefined
+export async function getAdult(id: string): Promise<Adult | undefined> {
+  return getDb().get<Adult>(`SELECT * FROM adults WHERE id = ?`, [id])
 }
 
-export function createConversation(studentId: string, title: string): Conversation {
+export async function createConversation(
+  studentId: string,
+  title: string,
+  id?: string,
+): Promise<Conversation> {
   const c: Conversation = {
-    id: nanoid(),
+    id: id ?? nanoid(),
     studentId,
     title,
     phase: null,
@@ -138,27 +149,26 @@ export function createConversation(studentId: string, title: string): Conversati
     lastMessageAt: Date.now(),
     createdAt: Date.now(),
   }
-  getDb().prepare(
+  await getDb().run(
     `INSERT INTO conversations (id, studentId, title, phase, workbenchStateJson, lastMessageAt, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(c.id, c.studentId, c.title, c.phase, c.workbenchStateJson, c.lastMessageAt, c.createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [c.id, c.studentId, c.title, c.phase, c.workbenchStateJson, c.lastMessageAt, c.createdAt],
+  )
   return c
 }
 
-export function listConversations(studentId: string): Conversation[] {
-  return plainAll<Conversation>(
-    getDb()
-      .prepare(`SELECT * FROM conversations WHERE studentId = ? ORDER BY lastMessageAt DESC`)
-      .all(studentId),
+export async function listConversations(studentId: string): Promise<Conversation[]> {
+  return getDb().all<Conversation>(
+    `SELECT * FROM conversations WHERE studentId = ? ORDER BY lastMessageAt DESC`,
+    [studentId],
   )
 }
 
-export function getConversation(id: string): Conversation | undefined {
-  const row = getDb().prepare(`SELECT * FROM conversations WHERE id = ?`).get(id)
-  return row ? plain<Conversation>(row) : undefined
+export async function getConversation(id: string): Promise<Conversation | undefined> {
+  return getDb().get<Conversation>(`SELECT * FROM conversations WHERE id = ?`, [id])
 }
 
-export function appendMessage(input: {
+export async function appendMessage(input: {
   conversationId: string
   role: 'user' | 'assistant' | 'system'
   content: string
@@ -166,46 +176,57 @@ export function appendMessage(input: {
   citations?: unknown
   signals?: unknown
   rubricScore?: unknown
-}): DbMessage {
+}): Promise<DbMessage> {
   const m: DbMessage = {
     id: nanoid(),
     conversationId: input.conversationId,
     role: input.role,
     content: input.content,
-    structuredComponentJson: input.structuredComponent ? JSON.stringify(input.structuredComponent) : null,
+    structuredComponentJson: input.structuredComponent
+      ? JSON.stringify(input.structuredComponent)
+      : null,
     citationsJson: input.citations ? JSON.stringify(input.citations) : null,
     signalsJson: input.signals ? JSON.stringify(input.signals) : null,
     rubricScoreJson: input.rubricScore ? JSON.stringify(input.rubricScore) : null,
     timestamp: Date.now(),
   }
-  transact(() => {
-    const db = getDb()
-    db.prepare(
-      `INSERT INTO messages
+  await getDb().batch([
+    {
+      sql: `INSERT INTO messages
        (id, conversationId, role, content, structuredComponentJson, citationsJson, signalsJson, rubricScoreJson, timestamp)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      m.id, m.conversationId, m.role, m.content,
-      m.structuredComponentJson, m.citationsJson, m.signalsJson, m.rubricScoreJson, m.timestamp,
-    )
-    db.prepare(`UPDATE conversations SET lastMessageAt = ? WHERE id = ?`).run(m.timestamp, m.conversationId)
-  })
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      params: [
+        m.id,
+        m.conversationId,
+        m.role,
+        m.content,
+        m.structuredComponentJson,
+        m.citationsJson,
+        m.signalsJson,
+        m.rubricScoreJson,
+        m.timestamp,
+      ],
+    },
+    {
+      sql: `UPDATE conversations SET lastMessageAt = ? WHERE id = ?`,
+      params: [m.timestamp, m.conversationId],
+    },
+  ])
   return m
 }
 
-export function listMessages(conversationId: string): DbMessage[] {
-  return plainAll<DbMessage>(
-    getDb()
-      .prepare(`SELECT * FROM messages WHERE conversationId = ? ORDER BY timestamp`)
-      .all(conversationId),
+export async function listMessages(conversationId: string): Promise<DbMessage[]> {
+  return getDb().all<DbMessage>(
+    `SELECT * FROM messages WHERE conversationId = ? ORDER BY timestamp`,
+    [conversationId],
   )
 }
 
-export function issueShareToken(input: {
+export async function issueShareToken(input: {
   studentId: string
   kind: 'parent' | 'counselor' | 'other'
   ttlMs: number
-}): ShareToken {
+}): Promise<ShareToken> {
   const t: ShareToken = {
     token: nanoid(32),
     studentId: input.studentId,
@@ -213,29 +234,42 @@ export function issueShareToken(input: {
     expiresAt: Date.now() + input.ttlMs,
     claimedByAdultId: null,
   }
-  getDb().prepare(
+  await getDb().run(
     `INSERT INTO share_tokens (token, studentId, kind, expiresAt, claimedByAdultId)
-     VALUES (?, ?, ?, ?, ?)`
-  ).run(t.token, t.studentId, t.kind, t.expiresAt, t.claimedByAdultId)
+     VALUES (?, ?, ?, ?, ?)`,
+    [t.token, t.studentId, t.kind, t.expiresAt, t.claimedByAdultId],
+  )
   return t
 }
 
-export function claimShareToken(token: string, adultId: string): Link {
+export async function getShareToken(token: string): Promise<ShareToken | undefined> {
+  return getDb().get<ShareToken>(`SELECT * FROM share_tokens WHERE token = ?`, [token])
+}
+
+export async function claimShareToken(token: string, adultId: string): Promise<Link> {
   const db = getDb()
-  const tokRow = db.prepare(`SELECT * FROM share_tokens WHERE token = ?`).get(token)
-  if (!tokRow) throw new Error('Token not found')
-  const tok = plain<ShareToken>(tokRow)
+  const tok = await db.get<ShareToken>(`SELECT * FROM share_tokens WHERE token = ?`, [token])
+  if (!tok) throw new Error('Token not found')
   if (tok.claimedByAdultId) throw new Error('Token already claimed')
   if (tok.expiresAt < Date.now()) throw new Error('Token expired')
 
-  const existingRow = db
-    .prepare(`SELECT * FROM links WHERE studentId = ? AND adultId = ?`)
-    .get(tok.studentId, adultId)
-  const existing = existingRow ? plain<Link>(existingRow) : undefined
+  const existing = await db.get<Link>(
+    `SELECT * FROM links WHERE studentId = ? AND adultId = ?`,
+    [tok.studentId, adultId],
+  )
 
   let link: Link
   if (existing) {
-    db.prepare(`UPDATE links SET status = 'active', role = ? WHERE id = ?`).run(tok.kind, existing.id)
+    await db.batch([
+      {
+        sql: `UPDATE links SET status = 'active', role = ? WHERE id = ?`,
+        params: [tok.kind, existing.id],
+      },
+      {
+        sql: `UPDATE share_tokens SET claimedByAdultId = ? WHERE token = ?`,
+        params: [adultId, token],
+      },
+    ])
     link = { ...existing, status: 'active', role: tok.kind }
   } else {
     link = {
@@ -246,36 +280,39 @@ export function claimShareToken(token: string, adultId: string): Link {
       status: 'active',
       createdAt: Date.now(),
     }
-    db.prepare(
-      `INSERT INTO links (id, studentId, adultId, role, status, createdAt) VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(link.id, link.studentId, link.adultId, link.role, link.status, link.createdAt)
+    await db.batch([
+      {
+        sql: `INSERT INTO links (id, studentId, adultId, role, status, createdAt) VALUES (?, ?, ?, ?, ?, ?)`,
+        params: [link.id, link.studentId, link.adultId, link.role, link.status, link.createdAt],
+      },
+      {
+        sql: `UPDATE share_tokens SET claimedByAdultId = ? WHERE token = ?`,
+        params: [adultId, token],
+      },
+    ])
   }
-  db.prepare(`UPDATE share_tokens SET claimedByAdultId = ? WHERE token = ?`).run(adultId, token)
   return link
 }
 
-export function listLinksForStudent(studentId: string): Link[] {
-  return plainAll<Link>(
-    getDb()
-      .prepare(`SELECT * FROM links WHERE studentId = ? ORDER BY createdAt DESC`)
-      .all(studentId),
+export async function listLinksForStudent(studentId: string): Promise<Link[]> {
+  return getDb().all<Link>(
+    `SELECT * FROM links WHERE studentId = ? ORDER BY createdAt DESC`,
+    [studentId],
   )
 }
 
-export function listLinksForAdult(adultId: string): Link[] {
-  return plainAll<Link>(
-    getDb()
-      .prepare(
-        `SELECT * FROM links WHERE adultId = ? AND status = 'active' ORDER BY createdAt DESC`,
-      )
-      .all(adultId),
+export async function listLinksForAdult(adultId: string): Promise<Link[]> {
+  return getDb().all<Link>(
+    `SELECT * FROM links WHERE adultId = ? AND status = 'active' ORDER BY createdAt DESC`,
+    [adultId],
   )
 }
 
-export function revokeLink(studentId: string, adultId: string): void {
-  getDb().prepare(
-    `UPDATE links SET status = 'revoked' WHERE studentId = ? AND adultId = ?`
-  ).run(studentId, adultId)
+export async function revokeLink(studentId: string, adultId: string): Promise<void> {
+  await getDb().run(
+    `UPDATE links SET status = 'revoked' WHERE studentId = ? AND adultId = ?`,
+    [studentId, adultId],
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -298,12 +335,16 @@ export interface AdultMessage {
   timestamp: number
 }
 
-export function getOrCreateAdultConversation(adultId: string, studentId: string): AdultConversation {
+export async function getOrCreateAdultConversation(
+  adultId: string,
+  studentId: string,
+): Promise<AdultConversation> {
   const db = getDb()
-  const existing = db
-    .prepare(`SELECT * FROM adult_conversations WHERE adultId = ? AND studentId = ?`)
-    .get(adultId, studentId)
-  if (existing) return plain<AdultConversation>(existing)
+  const existing = await db.get<AdultConversation>(
+    `SELECT * FROM adult_conversations WHERE adultId = ? AND studentId = ?`,
+    [adultId, studentId],
+  )
+  if (existing) return existing
   const conv: AdultConversation = {
     id: nanoid(),
     adultId,
@@ -311,26 +352,26 @@ export function getOrCreateAdultConversation(adultId: string, studentId: string)
     lastMessageAt: Date.now(),
     createdAt: Date.now(),
   }
-  db.prepare(
+  await db.run(
     `INSERT INTO adult_conversations (id, adultId, studentId, lastMessageAt, createdAt)
      VALUES (?, ?, ?, ?, ?)`,
-  ).run(conv.id, conv.adultId, conv.studentId, conv.lastMessageAt, conv.createdAt)
+    [conv.id, conv.adultId, conv.studentId, conv.lastMessageAt, conv.createdAt],
+  )
   return conv
 }
 
-export function listAdultMessages(adultConvId: string): AdultMessage[] {
-  return plainAll<AdultMessage>(
-    getDb()
-      .prepare(`SELECT * FROM adult_messages WHERE adultConvId = ? ORDER BY timestamp`)
-      .all(adultConvId),
+export async function listAdultMessages(adultConvId: string): Promise<AdultMessage[]> {
+  return getDb().all<AdultMessage>(
+    `SELECT * FROM adult_messages WHERE adultConvId = ? ORDER BY timestamp`,
+    [adultConvId],
   )
 }
 
-export function appendAdultMessage(input: {
+export async function appendAdultMessage(input: {
   adultConvId: string
   role: AdultMessage['role']
   content: string
-}): AdultMessage {
+}): Promise<AdultMessage> {
   const m: AdultMessage = {
     id: nanoid(),
     adultConvId: input.adultConvId,
@@ -338,16 +379,17 @@ export function appendAdultMessage(input: {
     content: input.content,
     timestamp: Date.now(),
   }
-  transact(() => {
-    const db = getDb()
-    db.prepare(
-      `INSERT INTO adult_messages (id, adultConvId, role, content, timestamp)
+  await getDb().batch([
+    {
+      sql: `INSERT INTO adult_messages (id, adultConvId, role, content, timestamp)
        VALUES (?, ?, ?, ?, ?)`,
-    ).run(m.id, m.adultConvId, m.role, m.content, m.timestamp)
-    db.prepare(
-      `UPDATE adult_conversations SET lastMessageAt = ? WHERE id = ?`,
-    ).run(m.timestamp, m.adultConvId)
-  })
+      params: [m.id, m.adultConvId, m.role, m.content, m.timestamp],
+    },
+    {
+      sql: `UPDATE adult_conversations SET lastMessageAt = ? WHERE id = ?`,
+      params: [m.timestamp, m.adultConvId],
+    },
+  ])
   return m
 }
 
@@ -366,31 +408,28 @@ export interface StudentSelection {
   createdAt: number
 }
 
-export function createSelection(input: {
+export async function createSelection(input: {
   studentId: string
   kind: StudentSelection['kind']
   refId: string
   refLabel: string
   note?: string
   stance?: StudentSelection['stance']
-}): StudentSelection {
+}): Promise<StudentSelection> {
   const db = getDb()
-  const existing = db
-    .prepare(
-      `SELECT * FROM student_selections WHERE studentId = ? AND kind = ? AND refId = ?`,
-    )
-    .get(input.studentId, input.kind, input.refId)
+  const existing = await db.get<StudentSelection>(
+    `SELECT * FROM student_selections WHERE studentId = ? AND kind = ? AND refId = ?`,
+    [input.studentId, input.kind, input.refId],
+  )
 
   if (existing) {
-    const row = plain<StudentSelection>(existing)
-    const note = input.note !== undefined ? input.note : row.note
-    const stance = input.stance ?? row.stance
-    db.prepare(
+    const note = input.note !== undefined ? input.note : existing.note
+    const stance = input.stance ?? existing.stance
+    await db.run(
       `UPDATE student_selections SET refLabel = ?, note = ?, stance = ? WHERE id = ?`,
-    ).run(input.refLabel, note, stance, row.id)
-    return plain<StudentSelection>(
-      db.prepare(`SELECT * FROM student_selections WHERE id = ?`).get(row.id)!,
+      [input.refLabel, note, stance, existing.id],
     )
+    return { ...existing, refLabel: input.refLabel, note, stance }
   }
 
   const sel: StudentSelection = {
@@ -403,38 +442,32 @@ export function createSelection(input: {
     stance: input.stance ?? 'considering',
     createdAt: Date.now(),
   }
-  db.prepare(
+  await db.run(
     `INSERT INTO student_selections (id, studentId, kind, refId, refLabel, note, stance, createdAt)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(sel.id, sel.studentId, sel.kind, sel.refId, sel.refLabel, sel.note, sel.stance, sel.createdAt)
+    [sel.id, sel.studentId, sel.kind, sel.refId, sel.refLabel, sel.note, sel.stance, sel.createdAt],
+  )
   return sel
 }
 
-export function listSelections(studentId: string): StudentSelection[] {
-  return plainAll<StudentSelection>(
-    getDb()
-      .prepare(
-        `SELECT * FROM student_selections WHERE studentId = ? ORDER BY createdAt DESC`,
-      )
-      .all(studentId),
+export async function listSelections(studentId: string): Promise<StudentSelection[]> {
+  return getDb().all<StudentSelection>(
+    `SELECT * FROM student_selections WHERE studentId = ? ORDER BY createdAt DESC`,
+    [studentId],
   )
 }
 
-export function getSelection(id: string): StudentSelection | undefined {
-  const row = getDb()
-    .prepare(`SELECT * FROM student_selections WHERE id = ?`)
-    .get(id)
-  return row ? plain<StudentSelection>(row) : undefined
+export async function getSelection(id: string): Promise<StudentSelection | undefined> {
+  return getDb().get<StudentSelection>(`SELECT * FROM student_selections WHERE id = ?`, [id])
 }
 
-export function updateSelectionStance(id: string, stance: StudentSelection['stance']): void {
-  getDb()
-    .prepare(`UPDATE student_selections SET stance = ? WHERE id = ?`)
-    .run(stance, id)
+export async function updateSelectionStance(
+  id: string,
+  stance: StudentSelection['stance'],
+): Promise<void> {
+  await getDb().run(`UPDATE student_selections SET stance = ? WHERE id = ?`, [stance, id])
 }
 
-export function removeSelection(id: string): void {
-  getDb()
-    .prepare(`DELETE FROM student_selections WHERE id = ?`)
-    .run(id)
+export async function removeSelection(id: string): Promise<void> {
+  await getDb().run(`DELETE FROM student_selections WHERE id = ?`, [id])
 }

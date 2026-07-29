@@ -12,8 +12,8 @@ import {
 
 export async function GET() {
   try {
-    runMigrations()
-    const students = listStudents()
+    await runMigrations()
+    const students = await listStudents()
     return NextResponse.json({ students })
   } catch (err) {
     console.error('[identity GET] failed:', err)
@@ -30,10 +30,26 @@ type Body =
   | { role: 'adult'; displayName: string; kind: 'parent' | 'counselor' | 'other' }
   | { role: 'adult'; existingId: string }
 
+const ADULT_KINDS = new Set(['parent', 'counselor', 'other'])
+
 export async function POST(req: Request) {
   try {
-    runMigrations()
+    await runMigrations()
     const body = (await req.json()) as Body
+
+    if (body.role !== 'student' && body.role !== 'adult') {
+      return NextResponse.json({ error: 'role must be student or adult' }, { status: 400 })
+    }
+    if (!('existingId' in body)) {
+      const name = typeof body.displayName === 'string' ? body.displayName.trim() : ''
+      if (!name || name.length > 100) {
+        return NextResponse.json({ error: 'displayName is required (max 100 chars)' }, { status: 400 })
+      }
+      body.displayName = name
+      if (body.role === 'adult' && !ADULT_KINDS.has(body.kind)) {
+        return NextResponse.json({ error: 'kind must be parent, counselor, or other' }, { status: 400 })
+      }
+    }
 
     let id: string
     let role: 'student' | 'adult'
@@ -41,21 +57,21 @@ export async function POST(req: Request) {
     if (body.role === 'student') {
       role = 'student'
       if ('existingId' in body) {
-        const s = getStudent(body.existingId)
+        const s = await getStudent(body.existingId)
         if (!s) return NextResponse.json({ error: 'not found' }, { status: 404 })
         id = s.id
       } else {
-        const s = createStudent({ displayName: body.displayName, personaId: body.personaId })
+        const s = await createStudent({ displayName: body.displayName, personaId: body.personaId })
         id = s.id
       }
     } else {
       role = 'adult'
       if ('existingId' in body) {
-        const a = getAdult(body.existingId)
+        const a = await getAdult(body.existingId)
         if (!a) return NextResponse.json({ error: 'not found' }, { status: 404 })
         id = a.id
       } else {
-        const a = createAdult({ displayName: body.displayName, kind: body.kind })
+        const a = await createAdult({ displayName: body.displayName, kind: body.kind })
         id = a.id
       }
     }
@@ -69,10 +85,9 @@ export async function POST(req: Request) {
     })
     return NextResponse.json({ id, role })
   } catch (err) {
+    // Details stay in server logs; clients get a generic message so DB/SQL
+    // internals never leak.
     console.error('[identity POST] failed:', err)
-    return NextResponse.json(
-      { error: (err as Error).message ?? 'Could not create identity' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: 'Could not create identity' }, { status: 500 })
   }
 }

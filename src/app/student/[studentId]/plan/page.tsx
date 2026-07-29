@@ -315,11 +315,11 @@ export default async function StudentPlanPage({
 }: {
   params: Promise<{ studentId: string }>
 }) {
-  runMigrations()
+  await runMigrations()
   const { studentId } = await params
-  const student = getStudent(studentId)
+  const student = await getStudent(studentId)
   if (!student) redirect('/')
-  const plan = buildStudentPlan(studentId)
+  const plan = await buildStudentPlan(studentId)
   if (!plan) redirect('/')
 
   const lastActivity = plan.lastActivityAt ? relativeTime(plan.lastActivityAt) : null
