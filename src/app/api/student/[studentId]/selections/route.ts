@@ -14,9 +14,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ studentId: string }> },
 ) {
-  runMigrations()
+  await runMigrations()
   const { studentId } = await params
-  const selections = listSelections(studentId)
+  const selections = await listSelections(studentId)
   return NextResponse.json({ selections })
 }
 
@@ -24,7 +24,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ studentId: string }> },
 ) {
-  runMigrations()
+  await runMigrations()
   const { studentId } = await params
   const body = await req.json()
   const { kind, refId, refLabel, note, stance } = body
@@ -42,7 +42,7 @@ export async function POST(
     return NextResponse.json({ error: 'refLabel must be a non-empty string' }, { status: 400 })
   }
 
-  const selection = createSelection({
+  const selection = await createSelection({
     studentId,
     kind,
     refId,
@@ -57,13 +57,13 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ studentId: string }> },
 ) {
-  runMigrations()
+  await runMigrations()
   await params // resolve but we don't need studentId for delete-by-id
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) {
     return NextResponse.json({ error: 'id query param is required' }, { status: 400 })
   }
-  removeSelection(id)
+  await removeSelection(id)
   return NextResponse.json({ ok: true })
 }

@@ -228,7 +228,10 @@ export function Workbench({
   useEffect(() => {
     fetch(`/api/student/${student.id}/selections`)
       .then((r) => r.json())
-      .then(({ selections: loaded }: { selections: StudentSelection[] }) => setSelections(loaded))
+      .then(({ selections: loaded }: { selections: StudentSelection[] }) =>
+        // Never trust the payload shape — a bad response must not brick the page.
+        setSelections(Array.isArray(loaded) ? loaded : []),
+      )
       .catch(() => {/* Non-critical */})
   }, [student.id])
 
