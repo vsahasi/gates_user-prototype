@@ -2,6 +2,10 @@
   "name": "gates_user-prototype",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "packageManager": "pnpm@10.22.0",
   "scripts": {
     "dev": "rm -rf .next && next dev --turbopack",
     "dev:webpack": "rm -rf .next && next dev --webpack",
@@ -21,6 +25,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
     "@base-ui/react": "^1.4.0",
+    "@libsql/client": "^0.17.4",
     "@pinecone-database/pinecone": "^7.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

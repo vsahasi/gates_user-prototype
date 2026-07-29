@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "rm -f data/pathwayai.demo.db* && pnpm seed:demo && next build"
+}
