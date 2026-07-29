@@ -6,27 +6,27 @@ import { getDb, closeDb, runMigrations } from '@/lib/db'
 const TEST_DB = './data/test.db'
 
 describe('db connection', () => {
-  beforeEach(() => {
-    closeDb()
+  beforeEach(async () => {
+    await closeDb()
     if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
     process.env.SQLITE_PATH = TEST_DB
   })
-  afterEach(() => {
-    closeDb()
+  afterEach(async () => {
+    await closeDb()
     if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
   })
 
-  it('opens a SQLite db at SQLITE_PATH', () => {
-    const db = getDb()
-    expect(db.isOpen).toBe(true)
+  it('opens a SQLite db at SQLITE_PATH', async () => {
+    const row = await getDb().get<{ ok: number }>('SELECT 1 AS ok')
+    expect(row?.ok).toBe(1)
+    expect(existsSync(TEST_DB)).toBe(true)
   })
 
-  it('runMigrations applies 0001_init', () => {
-    runMigrations()
-    const db = getDb()
-    const tables = db.prepare(
+  it('runMigrations applies 0001_init', async () => {
+    await runMigrations()
+    const tables = await getDb().all<{ name: string }>(
       "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-    ).all() as Array<{ name: string }>
+    )
     const names = tables.map((t) => t.name)
     expect(names).toEqual(
       expect.arrayContaining([
@@ -37,13 +37,13 @@ describe('db connection', () => {
     )
   })
 
-  it('foreign keys are enforced', () => {
-    runMigrations()
-    const db = getDb()
-    expect(() =>
-      db.prepare(
-        `INSERT INTO student_profiles (studentId, profileJson, updatedAt) VALUES (?, ?, ?)`
-      ).run('nonexistent', '{}', Date.now())
-    ).toThrow(/FOREIGN KEY/i)
+  it('foreign keys are enforced', async () => {
+    await runMigrations()
+    await expect(
+      getDb().run(
+        `INSERT INTO student_profiles (studentId, profileJson, updatedAt) VALUES (?, ?, ?)`,
+        ['nonexistent', '{}', Date.now()]
+      )
+    ).rejects.toThrow(/FOREIGN KEY/i)
   })
 })

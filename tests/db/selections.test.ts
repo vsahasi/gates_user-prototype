@@ -6,22 +6,22 @@ import * as q from '@/lib/db/queries'
 
 const TEST_DB = './data/test-selections.db'
 
-beforeEach(() => {
-  closeDb()
+beforeEach(async () => {
+  await closeDb()
   if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
   process.env.SQLITE_PATH = TEST_DB
-  runMigrations()
+  await runMigrations()
 })
 
-afterEach(() => {
-  closeDb()
+afterEach(async () => {
+  await closeDb()
   if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
 })
 
 describe('createSelection', () => {
-  it('creates a row with the correct fields', () => {
-    const student = q.createStudent({ displayName: 'Alice' })
-    const sel = q.createSelection({
+  it('creates a row with the correct fields', async () => {
+    const student = await q.createStudent({ displayName: 'Alice' })
+    const sel = await q.createSelection({
       studentId: student.id,
       kind: 'school',
       refId: 'uw-seattle',
@@ -41,9 +41,9 @@ describe('createSelection', () => {
     expect(sel.createdAt).toBeGreaterThan(0)
   })
 
-  it('defaults stance to "considering" when not provided', () => {
-    const student = q.createStudent({ displayName: 'Bob' })
-    const sel = q.createSelection({
+  it('defaults stance to "considering" when not provided', async () => {
+    const student = await q.createStudent({ displayName: 'Bob' })
+    const sel = await q.createSelection({
       studentId: student.id,
       kind: 'pathway',
       refId: 'stem',
@@ -55,9 +55,9 @@ describe('createSelection', () => {
 })
 
 describe('createSelection upsert behavior', () => {
-  it('updates the existing row on duplicate (studentId, kind, refId) rather than throwing', () => {
-    const student = q.createStudent({ displayName: 'Carol' })
-    const first = q.createSelection({
+  it('updates the existing row on duplicate (studentId, kind, refId) rather than throwing', async () => {
+    const student = await q.createStudent({ displayName: 'Carol' })
+    const first = await q.createSelection({
       studentId: student.id,
       kind: 'school',
       refId: 'mit',
@@ -66,7 +66,7 @@ describe('createSelection upsert behavior', () => {
     })
 
     // Same (studentId, kind, refId) — should update, not throw
-    const second = q.createSelection({
+    const second = await q.createSelection({
       studentId: student.id,
       kind: 'school',
       refId: 'mit',
@@ -82,12 +82,12 @@ describe('createSelection upsert behavior', () => {
     expect(second.stance).toBe('leaning')
   })
 
-  it('listSelections returns only one row for the upserted pair', () => {
-    const student = q.createStudent({ displayName: 'Dave' })
-    q.createSelection({ studentId: student.id, kind: 'career', refId: 'eng', refLabel: 'Engineer' })
-    q.createSelection({ studentId: student.id, kind: 'career', refId: 'eng', refLabel: 'Software Engineer', stance: 'leaning' })
+  it('listSelections returns only one row for the upserted pair', async () => {
+    const student = await q.createStudent({ displayName: 'Dave' })
+    await q.createSelection({ studentId: student.id, kind: 'career', refId: 'eng', refLabel: 'Engineer' })
+    await q.createSelection({ studentId: student.id, kind: 'career', refId: 'eng', refLabel: 'Software Engineer', stance: 'leaning' })
 
-    const list = q.listSelections(student.id)
+    const list = await q.listSelections(student.id)
     expect(list.length).toBe(1)
     expect(list[0].refLabel).toBe('Software Engineer')
     expect(list[0].stance).toBe('leaning')
@@ -96,36 +96,36 @@ describe('createSelection upsert behavior', () => {
 
 describe('listSelections', () => {
   it('returns rows ordered by createdAt DESC', async () => {
-    const student = q.createStudent({ displayName: 'Eve' })
-    const s1 = q.createSelection({ studentId: student.id, kind: 'school', refId: 'a', refLabel: 'A' })
+    const student = await q.createStudent({ displayName: 'Eve' })
+    const s1 = await q.createSelection({ studentId: student.id, kind: 'school', refId: 'a', refLabel: 'A' })
     // Ensure different timestamps
     await new Promise((r) => setTimeout(r, 5))
-    const s2 = q.createSelection({ studentId: student.id, kind: 'school', refId: 'b', refLabel: 'B' })
+    const s2 = await q.createSelection({ studentId: student.id, kind: 'school', refId: 'b', refLabel: 'B' })
 
-    const list = q.listSelections(student.id)
+    const list = await q.listSelections(student.id)
     expect(list.map((s) => s.id)).toEqual([s2.id, s1.id])
   })
 
-  it('returns only selections belonging to the requested student', () => {
-    const s1 = q.createStudent({ displayName: 'Frank' })
-    const s2 = q.createStudent({ displayName: 'Grace' })
-    q.createSelection({ studentId: s1.id, kind: 'major', refId: 'cs', refLabel: 'Computer Science' })
-    q.createSelection({ studentId: s2.id, kind: 'major', refId: 'bio', refLabel: 'Biology' })
+  it('returns only selections belonging to the requested student', async () => {
+    const s1 = await q.createStudent({ displayName: 'Frank' })
+    const s2 = await q.createStudent({ displayName: 'Grace' })
+    await q.createSelection({ studentId: s1.id, kind: 'major', refId: 'cs', refLabel: 'Computer Science' })
+    await q.createSelection({ studentId: s2.id, kind: 'major', refId: 'bio', refLabel: 'Biology' })
 
-    const list1 = q.listSelections(s1.id)
+    const list1 = await q.listSelections(s1.id)
     expect(list1.length).toBe(1)
     expect(list1[0].refId).toBe('cs')
 
-    const list2 = q.listSelections(s2.id)
+    const list2 = await q.listSelections(s2.id)
     expect(list2.length).toBe(1)
     expect(list2[0].refId).toBe('bio')
   })
 })
 
 describe('updateSelectionStance and removeSelection', () => {
-  it('updateSelectionStance flips the stance', () => {
-    const student = q.createStudent({ displayName: 'Hank' })
-    const sel = q.createSelection({
+  it('updateSelectionStance flips the stance', async () => {
+    const student = await q.createStudent({ displayName: 'Hank' })
+    const sel = await q.createSelection({
       studentId: student.id,
       kind: 'school',
       refId: 'stanford',
@@ -133,25 +133,25 @@ describe('updateSelectionStance and removeSelection', () => {
       stance: 'considering',
     })
 
-    q.updateSelectionStance(sel.id, 'committed')
-    const updated = q.getSelection(sel.id)
+    await q.updateSelectionStance(sel.id, 'committed')
+    const updated = await q.getSelection(sel.id)
     expect(updated?.stance).toBe('committed')
   })
 
-  it('removeSelection deletes the row', () => {
-    const student = q.createStudent({ displayName: 'Iris' })
-    const sel = q.createSelection({
+  it('removeSelection deletes the row', async () => {
+    const student = await q.createStudent({ displayName: 'Iris' })
+    const sel = await q.createSelection({
       studentId: student.id,
       kind: 'pathway',
       refId: 'health',
       refLabel: 'Health Sciences',
     })
 
-    expect(q.getSelection(sel.id)).toBeDefined()
-    q.removeSelection(sel.id)
-    expect(q.getSelection(sel.id)).toBeUndefined()
+    expect(await q.getSelection(sel.id)).toBeDefined()
+    await q.removeSelection(sel.id)
+    expect(await q.getSelection(sel.id)).toBeUndefined()
 
-    const list = q.listSelections(student.id)
+    const list = await q.listSelections(student.id)
     expect(list.length).toBe(0)
   })
 })

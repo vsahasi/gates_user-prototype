@@ -38,41 +38,41 @@ describe('mergeProfile', () => {
 })
 
 describe('setStudentProfile (DB-backed)', () => {
-  beforeEach(() => {
-    closeDb()
+  beforeEach(async () => {
+    await closeDb()
     if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
     process.env.SQLITE_PATH = TEST_DB
-    runMigrations()
+    await runMigrations()
   })
-  afterEach(() => {
-    closeDb()
+  afterEach(async () => {
+    await closeDb()
     if (existsSync(TEST_DB)) unlinkSync(TEST_DB)
   })
 
-  it('replaces the session profile entirely', () => {
-    const s = createStudent({ displayName: 'Alex' })
-    const c = createConversation(s.id, 'First')
-    getOrCreateSession(c.id, undefined, s.id)
-    setStudentProfile(c.id, { grade: 11, state: 'TX', interests: ['nursing'] })
-    const session = getSession(c.id)!
+  it('replaces the session profile entirely', async () => {
+    const s = await createStudent({ displayName: 'Alex' })
+    const c = await createConversation(s.id, 'First')
+    await getOrCreateSession(c.id, undefined, s.id)
+    await setStudentProfile(c.id, { grade: 11, state: 'TX', interests: ['nursing'] })
+    const session = (await getSession(c.id))!
     expect(session.studentProfile.grade).toBe(11)
     expect(session.studentProfile.state).toBe('TX')
     expect(session.studentProfile.interests).toEqual(['nursing'])
     expect(session.studentProfile.goals).toEqual([])
   })
 
-  it('replaces interests (does not merge with existing)', () => {
-    const s = createStudent({ displayName: 'Alex' })
-    const c = createConversation(s.id, 'First')
-    getOrCreateSession(c.id, undefined, s.id)
-    setStudentProfile(c.id, { interests: ['business', 'tech'] })
-    setStudentProfile(c.id, { interests: ['nursing'] })
-    const session = getSession(c.id)!
+  it('replaces interests (does not merge with existing)', async () => {
+    const s = await createStudent({ displayName: 'Alex' })
+    const c = await createConversation(s.id, 'First')
+    await getOrCreateSession(c.id, undefined, s.id)
+    await setStudentProfile(c.id, { interests: ['business', 'tech'] })
+    await setStudentProfile(c.id, { interests: ['nursing'] })
+    const session = (await getSession(c.id))!
     expect(session.studentProfile.interests).toEqual(['nursing'])
   })
 
-  it('is a no-op for unknown session', () => {
-    expect(() => setStudentProfile('nonexistent', { grade: 9 })).not.toThrow()
+  it('is a no-op for unknown session', async () => {
+    await expect(setStudentProfile('nonexistent', { grade: 9 })).resolves.toBeUndefined()
   })
 })
 
